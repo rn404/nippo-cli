@@ -67,7 +67,7 @@ export const update = async (
 ): Promise<void> => {
   const targetFile = join(path, fileName);
   const encoder = new TextEncoder();
-  const data = encoder.encode(JSON.stringify(content));
+  const data = encoder.encode(JSON.stringify(content, null, 2));
   await Deno.writeFile(targetFile, data);
 };
 
