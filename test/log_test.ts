@@ -1,6 +1,6 @@
-import { assertEquals } from 'https://deno.land/std@0.121.0/testing/asserts.ts';
-import format from 'https://deno.land/x/date_fns@v2.22.1/format/index.js';
-import { join } from 'https://deno.land/std@0.100.0/path/mod.ts';
+import { assertEquals } from './dependencies.ts'
+import { format, join } from '../src/dependencies.ts'
+
 import { getCurrentFile } from '../src/log.ts'
 
 Deno.test('getCurrentFile', async () => {

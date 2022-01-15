@@ -1,5 +1,8 @@
-import { parse } from 'https://deno.land/std@0.100.0/flags/mod.ts';
-import format from 'https://deno.land/x/date_fns@v2.22.1/format/index.js';
+import {
+  parse,
+  format
+} from './dependencies.ts'
+
 import { addItem, getCurrentFile, parse as parseLog, update } from './log.ts';
 import { MemoItem } from './models/MemoItem.ts';
 import { LOG_DIR } from './const.ts'
