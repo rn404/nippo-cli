@@ -1,2 +1,2 @@
 // date of iso format
-export type DateFromISOString = string
+export type DateFromISOString = string;

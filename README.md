@@ -13,3 +13,9 @@ https://gist.github.com/rn404/decf010fc48d7d8688116af0f4427b44
 deno run --allow-read --allow-write src/todo.ts todo '次何するか決める' 
 deno run --allow-read --allow-write src/todo.ts todo list
 ```
+
+### Formatter
+
+```
+deno fmt -c .config/deno.jsonc 
+```
