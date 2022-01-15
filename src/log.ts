@@ -17,6 +17,8 @@ export const getCurrentFile = async (logDir: string): Promise<LogFileInfo> => {
   const todayLogFileName = format(currentTime, 'yyyyMMdd', {}) +
     `.${LOG_FILE_EXT}`;
   const path = join(Deno.cwd(), logDir);
+  const hash = createHash('md5').update(currentTime.toString()).toString()
+  const freezed = false
 
   try {
     const stat = await Deno.lstat(join(path, todayLogFileName));
@@ -30,12 +32,14 @@ export const getCurrentFile = async (logDir: string): Promise<LogFileInfo> => {
         path,
         fileName: todayLogFileName,
         createdAt,
-        data: {},
+        data: {
+          hash, freezed, logs: []
+        },
       };
     }
   }
 
-  const resource: { [hash: string]: LogItem } = JSON.parse(
+  const resource: Log = JSON.parse(
     await Deno.readTextFile(join(path, todayLogFileName)),
   );
 
@@ -69,10 +73,7 @@ export const update = async (
 
 export const addItem = async (newItem: LogItem, oldData: Log): Promise<Log> => {
   const data = Object.assign({}, oldData);
-  const hash = createHash('md5');
-  hash.update(newItem.createdAt.toString());
-  const hashKey = hash.toString();
-  data[hashKey] = newItem;
+  data.logs.push(newItem);
   return data;
 };
 
@@ -83,8 +84,7 @@ export const parse = (log: Log): {
   const tasks: Array<TaskItem> = [];
   const memos: Array<MemoItem> = [];
 
-  Object.keys(log).forEach((hashKey) => {
-    const item = log[hashKey];
+  log.logs.forEach((item) => {
     if (item.closed !== undefined) {
       tasks.push(createTaskItem(
         item.content,

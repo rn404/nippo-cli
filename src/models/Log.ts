@@ -17,7 +17,9 @@ export interface LogItem {
 }
 
 export interface Log {
-  [hash: string]: LogItem;
+  hash: string;
+  freezed: boolean;
+  logs: Array<LogItem>;
 }
 
 export const convertToLogItem = (item: MemoItem | TaskItem): LogItem => {

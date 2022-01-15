@@ -1,6 +1,10 @@
+import {
+  createHash
+} from './../dependencies.ts'
 import { DateFromISOString } from './Date.ts';
 
 export class TaskItem {
+  public readonly hash: string;
   public readonly createdAt: DateFromISOString;
   public updatedAt: DateFromISOString;
   public closed: boolean;
@@ -10,10 +14,13 @@ export class TaskItem {
     createdAt?: DateFromISOString,
     updatedAt?: DateFromISOString,
     closed?: boolean,
+    hash?: string,
   ) {
     const currentTimeStamp = new Date().toISOString();
     this.createdAt = createdAt ?? currentTimeStamp;
     this.updatedAt = updatedAt ?? currentTimeStamp;
+    this.hash = hash ?? createHash('md5')
+      .update(this.createdAt.toString()).toString();
     this.closed = closed ?? false;
   }
 
@@ -42,10 +49,12 @@ export const createTaskItem = (
   updatedAt: DateFromISOString,
   closed: boolean,
 ): TaskItem => {
+  const hash = createHash('md5').update(createdAt.toString()).toString();
   return new TaskItem(
     content,
     createdAt,
     updatedAt,
     closed,
+    hash,
   );
 };
