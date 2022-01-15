@@ -2,6 +2,7 @@ import { parse } from 'https://deno.land/std@0.100.0/flags/mod.ts';
 import format from 'https://deno.land/x/date_fns@v2.22.1/format/index.js';
 import { addItem, getCurrentFile, parse as parseLog, update } from './log.ts';
 import { MemoItem } from './models/MemoItem.ts';
+import { LOG_DIR } from './const.ts'
 
 const { _: args } = parse(Deno.args);
 const [topCommands, subCommands] = args;
@@ -15,7 +16,7 @@ if (topCommands !== 'todo') {
 }
 
 if (subCommands === 'list') {
-  const { createdAt, data } = await getCurrentFile();
+  const { createdAt, data } = await getCurrentFile(LOG_DIR);
   const { tasks, memos } = parseLog(data);
 
   const isNoData = tasks.length === 0 && memos.length === 0;
@@ -64,7 +65,7 @@ if (subCommands !== undefined) {
   const [, content] = args;
   const newItem: MemoItem = new MemoItem(content.toString());
 
-  const { path, fileName, data } = await getCurrentFile();
+  const { path, fileName, data } = await getCurrentFile(LOG_DIR);
   const newLog = await addItem(newItem, data);
   await update(newLog, path, fileName);
 }

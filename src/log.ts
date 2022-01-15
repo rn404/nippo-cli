@@ -6,16 +6,14 @@ import { createHash } from 'https://deno.land/std@0.77.0/hash/mod.ts';
 import { Log, LogFileInfo, LogItem } from './models/Log.ts';
 import { createMemoItem, MemoItem } from './models/MemoItem.ts';
 import { createTaskItem, TaskItem } from './models/TaskItem.ts';
+import { LOG_FILE_EXT } from './const.ts'
 
-const LOG_DIR = '.log';
-const LOG_FILE_EXT = 'json';
-
-export const getCurrentFile = async (): Promise<LogFileInfo> => {
+export const getCurrentFile = async (logDir: string): Promise<LogFileInfo> => {
   const currentTime = new Date();
   const createdAt = currentTime.toISOString();
   const todayLogFileName = format(currentTime, 'yyyyMMdd', {}) +
     `.${LOG_FILE_EXT}`;
-  const path = join(Deno.cwd(), LOG_DIR);
+  const path = join(Deno.cwd(), logDir);
 
   try {
     const stat = await Deno.lstat(join(path, todayLogFileName));
