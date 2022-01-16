@@ -5,6 +5,8 @@ import {
 
 import { addItem, getCurrentFile, parse as parseLog, update } from './log.ts';
 import { MemoItem } from './models/MemoItem.ts';
+import { TaskItem } from './models/TaskItem.ts'
+import { LogItem, convertToLogItem } from './models/Log.ts'
 import { LOG_DIR } from './const.ts'
 
 const listCommand = async (): Promise<void> => {
@@ -55,7 +57,14 @@ const listCommand = async (): Promise<void> => {
 }
 
 const addMemoCommand = async (content: string): Promise<void> => {
-  const newItem: MemoItem = new MemoItem(content);
+  const newItem: LogItem = convertToLogItem(new MemoItem(content));
+  const { path, fileName, data } = await getCurrentFile(LOG_DIR);
+  const newLog = await addItem(newItem, data);
+  await update(newLog, path, fileName);
+}
+
+const addTaskCommand = async (content: string): Promise<void> => {
+  const newItem: LogItem = convertToLogItem(new TaskItem(content));
   const { path, fileName, data } = await getCurrentFile(LOG_DIR);
   const newLog = await addItem(newItem, data);
   await update(newLog, path, fileName);
