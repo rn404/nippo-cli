@@ -1,13 +1,13 @@
-import { Command } from "https://deno.land/x/cliffy@v0.20.1/command/mod.ts";
+import { Command, HelpCommand } from './dependencies.ts';
 import {
   APP_NAME,
   VERSION
 } from './const.ts';
 
-const { options, args } = await new Command()
+await new Command()
   .name(APP_NAME)
   .version(VERSION)
-  // .default('help')
+  .default('help')
   .command(
     'add <contents:string>',
     new Command()
@@ -64,8 +64,8 @@ const { options, args } = await new Command()
         console.log('cleanCommand', { options })
       })
   )
-  // .command(
-  //   'help',
-  //   new HelpCommand()
-  // )
+  .command(
+    'help',
+    new HelpCommand()
+  )
   .parse(Deno.args);

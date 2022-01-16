@@ -6,3 +6,5 @@ export { createHash } from 'https://deno.land/std@0.77.0/hash/mod.ts';
 
 import format from 'https://deno.land/x/date_fns@v2.22.1/format/index.js';
 export { format };
+
+export { Command, HelpCommand } from "https://deno.land/x/cliffy@v0.20.1/command/mod.ts";
