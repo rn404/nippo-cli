@@ -4,7 +4,7 @@ import { addCommand } from './commands/add.ts';
 import { endCommand } from './commands/end.ts';
 import { deleteCommand } from './commands/delete.ts';
 import { listCommand } from './commands/list.ts';
-import { clearCommand } from './commands/clean.ts';
+import { clearCommand } from './commands/clear.ts';
 
 await new Command()
   .name(APP_NAME)
