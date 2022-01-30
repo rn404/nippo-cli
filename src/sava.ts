@@ -1,8 +1,9 @@
 import { Command, HelpCommand } from './dependencies.ts';
-import {
-  APP_NAME,
-  VERSION
-} from './const.ts';
+import { APP_NAME, VERSION } from './const.ts';
+import { addCommand } from './commands/add.ts';
+import { endCommand } from './commands/end.ts';
+import { deleteCommand } from './commands/delete.ts';
+import { listCommand } from './commands/list.ts';
 
 await new Command()
   .name(APP_NAME)
@@ -13,28 +14,28 @@ await new Command()
     new Command()
       .option(
         '-m, --memo',
-        'Add contents like memo item.'
+        'Add contents like memo item.',
       )
       .description('Add contents to nippo log.')
-      .action((options, contents) => {
-        console.log('addCommand', { options, contents })
-      })
+      .action(async (options, contents) => {
+        await addCommand(options, contents);
+      }),
   )
   .command(
     'end <hash:string>',
     new Command()
       .description('end to task.')
-      .action((_options, hash) => {
-        console.log('endCommand', { hash })
-      })
+      .action(async (_options, hash) => {
+        await endCommand(hash);
+      }),
   )
   .command(
-    'delete <hash:string>',
+    'del <hash:string>',
     new Command()
       .description('delete task.')
-      .action((_options, hash) => {
-        console.log('deleteItemCommand', { hash })
-      })
+      .action(async (_options, hash) => {
+        await deleteCommand(hash);
+      }),
   )
   .command(
     'list',
@@ -42,30 +43,30 @@ await new Command()
       .description('list all logs.')
       .option(
         '-a, --all',
-        'show all logs'
+        'show all logs',
       )
       .option(
         '-s, --stat',
-        'show summary of list'
+        'show summary of list',
       )
-      .action((options) => {
-        console.log('listCommand', { options })
-      })
+      .action(async (options) => {
+        await listCommand(options);
+      }),
   )
-  .command(
-    'clean',
-    new Command()
-      .description('delete log')
-      .option(
-        '-a, --all',
-        'clean all logs'
-      )
-      .action((options) => {
-        console.log('cleanCommand', { options })
-      })
-  )
+  // .command(
+  //   'clean',
+  //   new Command()
+  //     .description('delete log')
+  //     .option(
+  //       '-a, --all',
+  //       'clean all logs',
+  //     )
+  //     .action((options) => {
+  //       console.log('cleanCommand', { options });
+  //     }),
+  // )
   .command(
     'help',
-    new HelpCommand()
+    new HelpCommand(),
   )
   .parse(Deno.args);

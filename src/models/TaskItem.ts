@@ -1,6 +1,4 @@
-import {
-  createHash
-} from './../dependencies.ts'
+import { createHash } from './../dependencies.ts';
 import { DateFromISOString } from './Date.ts';
 
 export class TaskItem {
