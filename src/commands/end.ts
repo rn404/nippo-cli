@@ -1,7 +1,7 @@
 import { LOG_DIR } from '../const.ts';
 import { getLogFile, updateLogFile } from '../features/logFile.ts';
 import { finishTaskItem } from '../features/log.ts';
-import { generateFinishedTaskItem } from '../features/generate.ts'
+import { generateFinishedTaskItem } from '../features/generate.ts';
 
 export const endCommand = async (
   hash: string,

@@ -49,7 +49,7 @@ export const finishTaskItem = (
   }
 
   if (targetItem.closed === true) {
-    throw new Error('Target item is already finished.')
+    throw new Error('Target item is already finished.');
   }
 
   const taskItem = new TaskItem(

@@ -79,4 +79,4 @@ export const generateFinishedTaskItem = (item: TaskItem): void => {
       formatDateString(item.createdAt),
     ].join(WORD_SPACER),
   );
-}
+};

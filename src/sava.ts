@@ -4,6 +4,7 @@ import { addCommand } from './commands/add.ts';
 import { endCommand } from './commands/end.ts';
 import { deleteCommand } from './commands/delete.ts';
 import { listCommand } from './commands/list.ts';
+import { clearCommand } from './commands/clean.ts';
 
 await new Command()
   .name(APP_NAME)
@@ -53,18 +54,18 @@ await new Command()
         await listCommand(options);
       }),
   )
-  // .command(
-  //   'clean',
-  //   new Command()
-  //     .description('delete log')
-  //     .option(
-  //       '-a, --all',
-  //       'clean all logs',
-  //     )
-  //     .action((options) => {
-  //       console.log('cleanCommand', { options });
-  //     }),
-  // )
+  .command(
+    'clear',
+    new Command()
+      .description('delete log')
+      // .option(
+      //   '-a, --all',
+      //   'clear all logs',
+      // )
+      .action(async (options) => {
+        await clearCommand(options);
+      }),
+  )
   .command(
     'help',
     new HelpCommand(),

@@ -1,4 +1,4 @@
-import { createHash, ensureFile, join } from '../dependencies.ts';
+import { createHash, ensureFile, join, walk } from '../dependencies.ts';
 import { DateString } from '../models/Date.ts';
 import { LogFileName } from '../models/LogFileName.ts';
 import { LogFile } from '../models/LogFile.ts';
@@ -90,12 +90,36 @@ export const updateLogFile = async (
   };
 };
 
-// export const listLogFile = (
-//   logDir: string,
-// ): Array<
-//   & Pick<LogFile, 'path' | 'fileName'>
-//   & Pick<LogFile['body'], 'hash' | 'freezed'>
-// > => {};
+export const listLogFile = async (
+  logDir: string,
+): Promise<
+  Array<Pick<LogFile, 'path' | 'fileName'>>
+> => {
+  const listLog: Array<Pick<LogFile, 'path' | 'fileName'> | undefined> = [];
+  const files = walk(logDir, {
+    maxDepth: 1,
+    includeDirs: false,
+    exts: ['json'],
+  });
+
+  for await (const file of files) {
+    const logFileDate = new Date(file.name.split('.')[0]);
+
+    listLog.push(
+      Number.isNaN(logFileDate.getDate()) ? undefined : {
+        path: join(
+          Deno.cwd(),
+          file.path,
+        ),
+        fileName: new LogFileName(logFileDate).name,
+      },
+    );
+  }
+
+  return listLog.filter((item): item is Pick<LogFile, 'path' | 'fileName'> =>
+    item !== undefined
+  );
+};
 
 // export const deleteLogFile = (
 //   logDir: string,
