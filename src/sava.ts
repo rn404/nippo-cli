@@ -39,7 +39,7 @@ await new Command()
       }),
   )
   .command(
-    'list',
+    'list [hash:string]',
     new Command()
       .description('list all logs.')
       .option(
@@ -50,8 +50,8 @@ await new Command()
         '-s, --stat',
         'show summary of list',
       )
-      .action(async (options) => {
-        await listCommand(options);
+      .action(async (options, hash) => {
+        await listCommand(options, hash);
       }),
   )
   .command(
