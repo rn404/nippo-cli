@@ -58,10 +58,10 @@ await new Command()
     'clear',
     new Command()
       .description('delete log')
-      // .option(
-      //   '-a, --all',
-      //   'clear all logs',
-      // )
+      .option(
+        '-a, --all',
+        'clear all logs',
+      )
       .action(async (options) => {
         await clearCommand(options);
       }),
