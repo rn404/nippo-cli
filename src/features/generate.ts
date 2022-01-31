@@ -2,6 +2,7 @@ import { format } from '../dependencies.ts';
 import { DateFromISOString } from '../models/Date.ts';
 import { MemoItem } from '../models/MemoItem.ts';
 import { TaskItem } from '../models/TaskItem.ts';
+import { LogFile } from '../models/LogFile.ts';
 
 const WORD_SPACER = ' ';
 const LIST_BULLET = '-';
@@ -80,3 +81,25 @@ export const generateFinishedTaskItem = (item: TaskItem): void => {
     ].join(WORD_SPACER),
   );
 };
+
+export const generateLogFileStat = (logFileInfo: {
+  fileName: LogFile['fileName'],
+  isFreezed: LogFile['body']['freezed'],
+  items: {
+    tasks: Array<TaskItem>,
+    memos: Array<MemoItem>
+  },
+  unfinishedTaskCount: number
+}): void => {
+  const isFreezedMark = logFileInfo.isFreezed === true ? '*' : ' ';
+
+  console.log(
+    [
+      LIST_BULLET,
+      formatDateString(logFileInfo.fileName) + isFreezedMark,
+      `Task: ${logFileInfo.items.tasks.length}`,
+      `(unfinished: ${logFileInfo.unfinishedTaskCount}),`,
+      `Memo: ${logFileInfo.items.memos.length}`
+    ].join(WORD_SPACER)
+  );
+}
