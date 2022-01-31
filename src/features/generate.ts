@@ -11,7 +11,7 @@ const generateBreakLine = (): void => {
   console.log(); // really?
 };
 
-const formatDateString = (item: DateFromISOString): string => {
+const formatTimeString = (item: DateFromISOString): string => {
   // return `(${format(new Date(item), 'HH:mm:ss', {})})`
   return `(${format(new Date(item), 'HH:mm', {})})`;
 };
@@ -26,7 +26,7 @@ const generateTaskItem = (item: TaskItem): void => {
       LIST_BULLET,
       item.closed ? '[x]' : '[ ]',
       item.content,
-      formatDateString(item.createdAt),
+      formatTimeString(item.createdAt),
       item.hash,
     ].join(WORD_SPACER),
   );
@@ -41,7 +41,7 @@ const generateMemoItem = (item: MemoItem): void => {
     [
       LIST_BULLET,
       item.content,
-      formatDateString(item.createdAt),
+      formatTimeString(item.createdAt),
       item.hash,
     ].join(WORD_SPACER),
   );
@@ -77,7 +77,7 @@ export const generateFinishedTaskItem = (item: TaskItem): void => {
     [
       '>',
       item.content,
-      formatDateString(item.createdAt),
+      formatTimeString(item.createdAt),
     ].join(WORD_SPACER),
   );
 };
@@ -102,7 +102,7 @@ export const generateLogFileStat = (logFileInfo: {
   console.log(
     [
       LIST_BULLET,
-      formatDateString(logFileInfo.fileName) + isFreezedMark,
+      logFileInfo.fileName + isFreezedMark,
       `Task: ${logFileInfo.items.tasks.length}`,
       `(unfinished: ${logFileInfo.unfinishedTaskCount}),`,
       `Memo: ${logFileInfo.items.memos.length}`
