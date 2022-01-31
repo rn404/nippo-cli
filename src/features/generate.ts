@@ -82,6 +82,12 @@ export const generateFinishedTaskItem = (item: TaskItem): void => {
   );
 };
 
+export const generateHeader = (title: string): void => {
+  console.log(`
+    ${title}
+  `);
+};
+
 export const generateLogFileStat = (logFileInfo: {
   fileName: LogFile['fileName'],
   isFreezed: LogFile['body']['freezed'],
