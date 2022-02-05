@@ -1,4 +1,4 @@
-import { LOG_DIR, FILE_STATS_LIMIT_DAYS } from '../const.ts';
+import { FILE_STATS_LIMIT_DAYS, LOG_DIR } from '../const.ts';
 import { getLogFile, listLogFile } from '../features/logFile.ts';
 import { listItems } from '../features/log.ts';
 import {
@@ -9,13 +9,12 @@ import {
 } from '../features/generate.ts';
 import { requiredDateFormatHash } from '../features/hash.ts';
 import { DateString } from '../models/Date.ts';
-import { LogFile, Log } from '../models/LogFile.ts'
+import { Log, LogFile } from '../models/LogFile.ts';
 
 const viewLogFileStat = (fileName: DateString, log: Log): void => {
   const { tasks, memos } = listItems(log);
-  const unfinishedTaskCount = tasks.filter((item) =>
-    item.closed === false
-  ).length;
+  const unfinishedTaskCount =
+    tasks.filter((item) => item.closed === false).length;
 
   generateLogFileStat({
     fileName,
@@ -26,7 +25,7 @@ const viewLogFileStat = (fileName: DateString, log: Log): void => {
     },
     unfinishedTaskCount,
   });
-}
+};
 
 export const listCommand = async (
   options: { all?: boolean; stat?: boolean },
@@ -65,7 +64,9 @@ export const listCommand = async (
   const listLogFileNames = await listLogFile(LOG_DIR);
 
   if (options.stat === true) {
-    generateHeader(`View all log statistics. There are ${listLogFileNames.length} total.`);
+    generateHeader(
+      `View all log statistics. There are ${listLogFileNames.length} total.`,
+    );
 
     if (listLogFileNames.length > FILE_STATS_LIMIT_DAYS) {
       const acceptedAllReading = confirm(`
@@ -78,11 +79,13 @@ export const listCommand = async (
     }
 
     const logFiles: Array<LogFile> = await Promise.all(
-      listLogFileNames.map(async(item) => {
-        return getLogFile(LOG_DIR, item.fileName)
-      })
-    )
-    logFiles.forEach((logFile) => viewLogFileStat(logFile.fileName, logFile.body))
+      listLogFileNames.map(async (item) => {
+        return getLogFile(LOG_DIR, item.fileName);
+      }),
+    );
+    logFiles.forEach((logFile) =>
+      viewLogFileStat(logFile.fileName, logFile.body)
+    );
     return;
   }
 

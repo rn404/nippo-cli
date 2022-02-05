@@ -22,7 +22,9 @@ const clearAllFiles = async (logDir: string): Promise<void> => {
 
 const clearOldFiles = async (logDir: string): Promise<void> => {
   console.log(`
-    Delete logs that are past their storage period. ( Storage period: 30 days )
+    Delete logs that are past their storage period. ( Storage period: ${
+    Math.abs(STORAGE_PERIOD_DAY)
+  } days )
   `);
 
   const periodDate = new Date(new Date().setDate(STORAGE_PERIOD_DAY));
