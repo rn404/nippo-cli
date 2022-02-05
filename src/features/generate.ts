@@ -52,7 +52,7 @@ export const generateItemList = (contents: {
   memos: Array<MemoItem>;
 }) => {
   if (contents.tasks.length === 0 && contents.memos.length === 0) {
-    prompt('There is no body...');
+    console.log('There is no body...');
     return;
   }
 
@@ -89,13 +89,13 @@ export const generateHeader = (title: string): void => {
 };
 
 export const generateLogFileStat = (logFileInfo: {
-  fileName: LogFile['fileName'],
-  isFreezed: LogFile['body']['freezed'],
+  fileName: LogFile['fileName'];
+  isFreezed: LogFile['body']['freezed'];
   items: {
-    tasks: Array<TaskItem>,
-    memos: Array<MemoItem>
-  },
-  unfinishedTaskCount: number
+    tasks: Array<TaskItem>;
+    memos: Array<MemoItem>;
+  };
+  unfinishedTaskCount: number;
 }): void => {
   const isFreezedMark = logFileInfo.isFreezed === true ? '*' : ' ';
 
@@ -105,7 +105,13 @@ export const generateLogFileStat = (logFileInfo: {
       logFileInfo.fileName + isFreezedMark,
       `Task: ${logFileInfo.items.tasks.length}`,
       `(unfinished: ${logFileInfo.unfinishedTaskCount}),`,
-      `Memo: ${logFileInfo.items.memos.length}`
-    ].join(WORD_SPACER)
+      `Memo: ${logFileInfo.items.memos.length}`,
+    ].join(WORD_SPACER),
   );
-}
+};
+
+export const generateListItem = (messages: string | Array<string>): void => {
+  console.log(
+    [LIST_BULLET].concat(messages).join(WORD_SPACER),
+  );
+};

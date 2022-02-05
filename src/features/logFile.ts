@@ -2,6 +2,7 @@ import { createHash, ensureFile, join, walk } from '../dependencies.ts';
 import { DateString } from '../models/Date.ts';
 import { LogFileName } from '../models/LogFileName.ts';
 import { LogFile } from '../models/LogFile.ts';
+import { compareDatesInDescent } from './hash.ts';
 
 const LOG_FILE_INDENT_SPACE = 2;
 
@@ -116,9 +117,11 @@ export const listLogFile = async (
     );
   }
 
-  return listLog.filter((item): item is Pick<LogFile, 'path' | 'fileName'> =>
-    item !== undefined
-  );
+  return listLog
+    .filter((item): item is Pick<LogFile, 'path' | 'fileName'> =>
+      item !== undefined
+    )
+    .sort((a, b) => compareDatesInDescent(a.fileName, b.fileName));
 };
 
 // export const deleteLogFile = (

@@ -99,11 +99,11 @@ export const listItems = (
   });
 
   tasks.sort((a, b) => {
-    return new Date(a.createdAt).valueOf() - new Date(b.createdAt).valueOf()
-  })
+    return new Date(a.createdAt).valueOf() - new Date(b.createdAt).valueOf();
+  });
   memos.sort((a, b) => {
-    return new Date(a.createdAt).valueOf() - new Date(b.createdAt).valueOf()
-  })
+    return new Date(a.createdAt).valueOf() - new Date(b.createdAt).valueOf();
+  });
 
   return {
     tasks,
