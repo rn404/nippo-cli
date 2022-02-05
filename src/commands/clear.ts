@@ -1,7 +1,5 @@
-import { LOG_DIR } from '../const.ts';
+import { LOG_DIR, STORAGE_PERIOD_DAY } from '../const.ts';
 import { listLogFile } from '../features/logFile.ts';
-
-const STORAGE_PERIOD_DAY = -30;
 
 const clearAllFiles = async (logDir: string): Promise<void> => {
   const isDeleteAllLogFiles = confirm('Do you want to delete all the files?');

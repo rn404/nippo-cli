@@ -1,4 +1,4 @@
-import { LOG_DIR } from '../const.ts';
+import { LOG_DIR, FILE_STATS_LIMIT_DAYS } from '../const.ts';
 import { getLogFile, listLogFile } from '../features/logFile.ts';
 import { listItems } from '../features/log.ts';
 import {
@@ -65,8 +65,6 @@ export const listCommand = async (
   const listLogFileNames = await listLogFile(LOG_DIR);
 
   if (options.stat === true) {
-    const FILE_STATS_LIMIT_DAYS = 10
-
     generateHeader(`View all log statistics. There are ${listLogFileNames.length} total.`);
 
     if (listLogFileNames.length > FILE_STATS_LIMIT_DAYS) {
