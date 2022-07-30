@@ -36,5 +36,5 @@ deno run --allow-read --allow-write src/sava.ts list
 ### Formatter
 
 ```
-deno fmt -c .config/deno.jsonc 
+./scripts/format.sh
 ```
