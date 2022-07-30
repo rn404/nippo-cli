@@ -26,10 +26,19 @@ https://gist.github.com/rn404/decf010fc48d7d8688116af0f4427b44
 # command help
 deno run src/sava.ts
 
-# Add memo
-deno run --allow-read --allow-write src/sava.ts add '次何するか決める'
+# Add todo item
+deno run --allow-read --allow-write src/sava.ts add <message>
 
-# List todos
+# Finish todo item
+deno run --allow-read --allow-write src/sava.ts end <hash>
+
+# Add memo item
+deno run --allow-read --allow-write src/sava.ts add -m <message>
+
+# Delete item
+deno run --allow-read --allow-write src/sava.ts del <hash>
+
+# List log items
 deno run --allow-read --allow-write src/sava.ts list
 ```
 
