@@ -27,19 +27,19 @@ https://gist.github.com/rn404/decf010fc48d7d8688116af0f4427b44
 deno run src/sava.ts
 
 # Add todo item
-deno run --allow-read --allow-write src/sava.ts add <message>
+deno run -A src/sava.ts add <message>
 
 # Finish todo item
-deno run --allow-read --allow-write src/sava.ts end <hash>
+deno run -A src/sava.ts end <hash>
 
 # Add memo item
-deno run --allow-read --allow-write src/sava.ts add -m <message>
+deno run -A src/sava.ts add -m <message>
 
 # Delete item
-deno run --allow-read --allow-write src/sava.ts del <hash>
+deno run -A src/sava.ts del <hash>
 
 # List log items
-deno run --allow-read --allow-write src/sava.ts list
+deno run -A src/sava.ts list
 ```
 
 ### Formatter
