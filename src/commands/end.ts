@@ -6,7 +6,7 @@ import { logDir } from '../features/path.ts';
 export const endCommand = async (
   hash: string,
 ): Promise<void> => {
-  const dir = logDir()
+  const dir = logDir();
   const { fileName, body: log } = await getLogFile(dir);
   const { log: newLog, finished } = finishTaskItem(log, hash);
 

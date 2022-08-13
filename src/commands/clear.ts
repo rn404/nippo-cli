@@ -43,7 +43,7 @@ const clearOldFiles = async (logDir: string): Promise<void> => {
 export const clearCommand = async (
   options: { all?: boolean },
 ): Promise<void> => {
-  const dir = logDir()
+  const dir = logDir();
   if (options.all === true) {
     await clearAllFiles(dir);
     return;

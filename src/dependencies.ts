@@ -7,7 +7,7 @@ export { createHash } from 'https://deno.land/std@0.77.0/hash/mod.ts';
 import homeDir from 'https://deno.land/x/dir@1.5.1/home_dir/mod.ts';
 import { walk } from 'https://deno.land/std@0.123.0/fs/walk.ts';
 import format from 'https://deno.land/x/date_fns@v2.22.1/format/index.js';
-export { format, walk, homeDir };
+export { format, homeDir, walk };
 
 export {
   Command,

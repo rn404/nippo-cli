@@ -5,7 +5,7 @@ import { logDir } from '../features/path.ts';
 export const deleteCommand = async (
   hash: string,
 ): Promise<void> => {
-  const dir = logDir()
+  const dir = logDir();
   const { fileName, body: log } = await getLogFile(dir);
   const newLog = deleteItem(log, hash);
 

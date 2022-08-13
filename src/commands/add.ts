@@ -6,7 +6,7 @@ export const addCommand = async (
   options: { memo?: boolean },
   content: string,
 ): Promise<void> => {
-  const dir = logDir()
+  const dir = logDir();
   const { fileName, body: log } = await getLogFile(dir);
   const newLog = addItem(log, content, options.memo !== true);
 

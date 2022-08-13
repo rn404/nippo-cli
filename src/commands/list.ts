@@ -32,7 +32,7 @@ export const listCommand = async (
   options: { all?: boolean; stat?: boolean },
   hash?: string,
 ): Promise<void> => {
-  const dir = logDir()
+  const dir = logDir();
 
   if (options.all !== true) {
     if (hash !== undefined && requiredDateFormatHash(hash) === true) {

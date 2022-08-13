@@ -3,7 +3,7 @@ import { DateString } from '../models/Date.ts';
 import { LogFileName } from '../models/LogFileName.ts';
 import { LogFile } from '../models/LogFile.ts';
 import { compareDatesInDescent } from './hash.ts';
-import { pathResolve } from './path.ts'
+import { pathResolve } from './path.ts';
 
 const LOG_FILE_INDENT_SPACE = 2;
 
