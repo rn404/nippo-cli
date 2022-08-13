@@ -3,6 +3,7 @@ import { DateString } from '../models/Date.ts';
 import { LogFileName } from '../models/LogFileName.ts';
 import { LogFile } from '../models/LogFile.ts';
 import { compareDatesInDescent } from './hash.ts';
+import { pathResolve } from './path.ts';
 
 const LOG_FILE_INDENT_SPACE = 2;
 
@@ -14,12 +15,10 @@ export const getLogFile = async (
     targetDay === undefined ? new Date() : new Date(targetDay),
   );
 
-  // TODO path resolve
-  const targetFileFullPath = join(
-    Deno.cwd(),
+  const targetFileFullPath = pathResolve([
     logDir,
     targetFileName.withExtension,
-  );
+  ]);
 
   // Check if a log file has been created.
   try {
@@ -71,12 +70,10 @@ export const updateLogFile = async (
   }
   const targetFileName = new LogFileName(new Date(targetDay));
 
-  // TODO path resolve
-  const targetFileFullPath = join(
-    Deno.cwd(),
+  const targetFileFullPath = pathResolve([
     logDir,
     targetFileName.withExtension,
-  );
+  ]);
 
   const newLog = new TextEncoder().encode(
     JSON.stringify(body, null, LOG_FILE_INDENT_SPACE),
@@ -108,10 +105,10 @@ export const listLogFile = async (
 
     listLog.push(
       Number.isNaN(logFileDate.getDate()) ? undefined : {
-        path: join(
-          Deno.cwd(),
+        path: pathResolve([
+          logDir,
           file.path,
-        ),
+        ]),
         fileName: new LogFileName(logFileDate).name,
       },
     );
