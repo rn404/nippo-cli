@@ -1,4 +1,4 @@
-import { FILE_STATS_LIMIT_DAYS, LOG_DIR } from '../const.ts';
+import { FILE_STATS_LIMIT_DAYS } from '../const.ts';
 import { getLogFile, listLogFile } from '../features/logFile.ts';
 import { listItems } from '../features/log.ts';
 import {
@@ -8,6 +8,7 @@ import {
   generateLogFileStat,
 } from '../features/generate.ts';
 import { requiredDateFormatHash } from '../features/hash.ts';
+import { logDir } from '../features/path.ts';
 import { DateString } from '../models/Date.ts';
 import { Log, LogFile } from '../models/LogFile.ts';
 
@@ -31,13 +32,15 @@ export const listCommand = async (
   options: { all?: boolean; stat?: boolean },
   hash?: string,
 ): Promise<void> => {
+  const dir = logDir()
+
   if (options.all !== true) {
     if (hash !== undefined && requiredDateFormatHash(hash) === true) {
       throw new Error('Invalid hash string.');
     }
 
     const { fileName, body: log } = await getLogFile(
-      LOG_DIR,
+      dir,
       hash as DateString,
     );
 
@@ -61,7 +64,7 @@ export const listCommand = async (
     return;
   }
 
-  const listLogFileNames = await listLogFile(LOG_DIR);
+  const listLogFileNames = await listLogFile(dir);
 
   if (options.stat === true) {
     generateHeader(
@@ -80,7 +83,7 @@ export const listCommand = async (
 
     const logFiles: Array<LogFile> = await Promise.all(
       listLogFileNames.map(async (item) => {
-        return getLogFile(LOG_DIR, item.fileName);
+        return getLogFile(dir, item.fileName);
       }),
     );
     logFiles.forEach((logFile) =>

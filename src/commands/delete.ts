@@ -1,15 +1,16 @@
-import { LOG_DIR } from '../const.ts';
 import { getLogFile, updateLogFile } from '../features/logFile.ts';
 import { deleteItem } from '../features/log.ts';
+import { logDir } from '../features/path.ts';
 
 export const deleteCommand = async (
   hash: string,
 ): Promise<void> => {
-  const { fileName, body: log } = await getLogFile(LOG_DIR);
+  const dir = logDir()
+  const { fileName, body: log } = await getLogFile(dir);
   const newLog = deleteItem(log, hash);
 
   await updateLogFile(
-    LOG_DIR,
+    dir,
     fileName,
     newLog,
   );
