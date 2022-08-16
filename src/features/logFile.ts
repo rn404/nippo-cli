@@ -1,19 +1,55 @@
-import { createHash, ensureFile, join, walk } from '../dependencies.ts';
-import { DateString } from '../models/Date.ts';
-import { LogFileName } from '../models/LogFileName.ts';
-import { LogFile } from '../models/LogFile.ts';
+import type { DateString } from '../models/Date.ts';
+import type { LogFile } from '../models/LogFile.ts';
+import { createHash, ensureFile, walk } from '../dependencies.ts';
+import { isDateString } from '../models/Date.ts';
+import { LogFileNameFactory } from '../models/factory/LogFileName.ts';
 import { compareDatesInDescent } from './hash.ts';
 import { pathResolve } from './path.ts';
 
 const LOG_FILE_INDENT_SPACE = 2;
 
+const logFileNameFactory = new LogFileNameFactory(Date);
+
+export const statLogFile = async (
+  logDir: string,
+  targetDay?: DateString, /* yyyy-MM-dd */
+): Promise<LogFile | undefined> => {
+  const targetFileName = logFileNameFactory.create(targetDay);
+
+  const targetFileFullPath = pathResolve([
+    logDir,
+    targetFileName.withExtension,
+  ]);
+
+  try {
+    const stat: Deno.FileInfo = await Deno.lstat(targetFileFullPath);
+
+    if (stat.isFile === false) {
+      throw new Error('Target log file is already exists and not file.');
+    }
+
+    const targetLog: LogFile['body'] = JSON.parse(
+      await Deno.readTextFile(targetFileFullPath),
+    );
+
+    return {
+      path: targetFileFullPath,
+      fileName: targetFileName.name,
+      body: targetLog,
+    };
+  } catch (error: unknown) {
+    if (error instanceof Deno.errors.NotFound) {
+      return undefined
+    }
+    throw error
+  }
+};
+
 export const getLogFile = async (
   logDir: string,
   targetDay?: DateString, /* yyyy-MM-dd */
 ): Promise<LogFile> => {
-  const targetFileName = new LogFileName(
-    targetDay === undefined ? new Date() : new Date(targetDay),
-  );
+  const targetFileName = logFileNameFactory.create(targetDay);
 
   const targetFileFullPath = pathResolve([
     logDir,
@@ -68,7 +104,7 @@ export const updateLogFile = async (
   if (body.freezed === true) {
     throw new Error('This log file is freezed. No updates.');
   }
-  const targetFileName = new LogFileName(new Date(targetDay));
+  const targetFileName = logFileNameFactory.create(targetDay);
 
   const targetFileFullPath = pathResolve([
     logDir,
@@ -101,16 +137,19 @@ export const listLogFile = async (
   });
 
   for await (const file of files) {
-    const logFileDate = new Date(file.name.split('.')[0]);
+    const logFileDate = file.name.split('.')[0];
+    const logFileName = logFileNameFactory.create(logFileDate as DateString);
 
     listLog.push(
-      Number.isNaN(logFileDate.getDate()) ? undefined : {
-        path: pathResolve([
-          logDir,
-          file.path,
-        ]),
-        fileName: new LogFileName(logFileDate).name,
-      },
+      isDateString(logFileDate)
+        ? {
+          path: pathResolve([
+            logDir,
+            file.path,
+          ]),
+          fileName: logFileName.name,
+        }
+        : undefined,
     );
   }
 
