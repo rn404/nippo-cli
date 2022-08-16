@@ -1,5 +1,5 @@
 import { FILE_STATS_LIMIT_DAYS } from '../const.ts';
-import { getLogFile, listLogFile } from '../features/logFile.ts';
+import { getLogFile, listLogFile, statLogFile } from '../features/logFile.ts';
 import { listItems } from '../features/log.ts';
 import {
   generateHeader,
@@ -39,10 +39,18 @@ export const listCommand = async (
       throw new Error('Invalid hash string.');
     }
 
-    const { fileName, body: log } = await getLogFile(
+    const logFile = await statLogFile(
       dir,
       hash as DateString,
     );
+
+    if (logFile === undefined) {
+      // TODO
+      generateHeader(`Today's logs are...`);
+      console.log('There is no body...');
+      return
+    }
+    const { fileName, body: log } = logFile
 
     if (options.stat === true) {
       if (hash === undefined || hash === '') {
