@@ -25,7 +25,7 @@ export const statLogFile = async (
     const stat: Deno.FileInfo = await Deno.lstat(targetFileFullPath);
 
     if (stat.isFile === false) {
-      throw new Error('Target log file is already exists and not file.');
+      return undefined
     }
 
     const targetLog: LogFile['body'] = JSON.parse(
@@ -41,6 +41,12 @@ export const statLogFile = async (
     if (error instanceof Deno.errors.NotFound) {
       return undefined
     }
+
+    // JSON parse error
+    if (error instanceof SyntaxError) {
+      return undefined
+    }
+
     throw error
   }
 };
