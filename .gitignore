@@ -2,4 +2,4 @@
 .log
 
 # Testing dummy files
-test/dummy_log_dir/*
+# test/dummy_log_dir/*
