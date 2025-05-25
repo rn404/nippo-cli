@@ -1,0 +1,17 @@
+name: Comment Sonar
+
+on:
+  workflow_dispatch:
+
+permissions:
+  pull-requests: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run comment-sonar
+        uses: rn404/comment-sonar@fbf4a1eab1fc1ec350f50a0aae3a58a26a772347
