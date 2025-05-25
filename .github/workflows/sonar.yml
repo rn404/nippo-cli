@@ -14,4 +14,4 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run comment-sonar
-        uses: rn404/comment-sonar@0ed24ba2c62c6a3016b92133cae129e39b6d07bb
+        uses: rn404/comment-sonar@31f2da00edfef64697e0605df72d67cf2bf1ab85
