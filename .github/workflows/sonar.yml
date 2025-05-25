@@ -7,11 +7,11 @@ permissions:
   pull-requests: write
 
 jobs:
-  build:
+  sonar:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Run comment-sonar
-        uses: rn404/comment-sonar@cc894a4c86e59391b27231e716e8a3b19818eb5b
+        uses: rn404/comment-sonar@ca5c4d373113e9017f9fe6ad399a8ada18e4c370
