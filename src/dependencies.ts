@@ -17,7 +17,7 @@ const formatTime = (date: Date): string => {
   return new Intl.DateTimeFormat('en-US', {
     hour: '2-digit',
     minute: '2-digit',
-    hour12: false
+    hour12: false,
   }).format(date);
 };
 
@@ -25,9 +25,6 @@ const formatDate = (date: Date): string => {
   return new Intl.DateTimeFormat('en-CA').format(date);
 };
 
-export { homeDir, walk, formatTime, formatDate };
+export { formatDate, formatTime, homeDir, walk };
 
-export {
-  Command,
-  HelpCommand,
-} from 'cliffy';
+export { Command, HelpCommand } from 'cliffy';
