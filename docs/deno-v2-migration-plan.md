@@ -90,13 +90,13 @@
 ### Phase 2: 依存関係の段階的更新
 - [ ] **2.1** 標準ライブラリの統合・更新（優先度：高）
   - 全stdライブラリを最新版に統一（現在：0.77.0〜0.123.0 → 統一版）
-  - JSR移行が可能なものは移行検討
-  - 特に重要：hash, fs, path, testing モジュール
+  - JSR移行（@std/fs, @std/path, @std/crypto, @std/testing）
+  - 特に重要：createHash（std/hash廃止予定、懸念あり）、fs（API変更なし）、path、testing
 
 - [ ] **2.2** サードパーティライブラリの更新（優先度：高）
   - **cliffy: v0.20.1 → v0.25.7**（Deno v2互換性修正、破壊的変更最小限）
   - **dir → Deno標準API移行**（Deno.env.get("HOME")使用）
-  - **date_fns → 代替案検討**（Intl.DateTimeFormat等）
+  - **date_fns → Intl.DateTimeFormat移行**（標準API、依存関係削除）
 
 - [ ] **2.3** テスト環境の統合（優先度：中）
   - test/dependencies.tsとsrc/dependencies.tsの統合
@@ -155,13 +155,13 @@ new Command()
 - 既存コードの変更不要
 - 将来的なv1.x移行は別途検討
 
-### 2. stdライブラリの互換性問題（リスク：中）
-**問題**: 複数バージョン混在による予期しない動作
-**影響ファイル**: `src/features/logFile.ts`, `src/features/path.ts`
+### 2. stdライブラリのJSR移行（リスク：低）
+**問題**: 複数バージョン混在とJSR移行対応
+**影響ファイル**: `src/features/logFile.ts`, `src/features/path.ts`, `src/models/*.ts`
 **対策**: 
-- 最新統一版への一括更新
-- hash/fs/path APIの互換性確認
-- 各機能の単体テスト実行
+- JSR移行（@std/fs, @std/path, @std/crypto, @std/testing）
+- createHashのみ懸念事項として注視（API変更可能性）
+- import文の一括更新、実装ロジック変更なし
 
 ### 3. テスト環境の分離問題（リスク：中）
 **問題**: test/src間での依存関係バージョン不一致
@@ -200,6 +200,23 @@ new Command()
 2. 各フェーズ完了後にコミット
 3. 問題が発生した場合は本計画書を更新
 4. 完了後に動作確認とドキュメント更新
+
+## 残っている不明瞭な点（実装時に検討）
+
+### **技術的な詳細**
+- **deno.json設定**: 既存`.config/deno.jsonc`からの設定移行内容、TypeScript設定の具体的な内容、import mapsの具体的なマッピング構造
+- **JSR移行の具体的なバージョン**: `@std/fs`、`@std/path`、`@std/crypto`、`@std/testing`の使用バージョン、JSRパッケージのSemVer範囲指定方針
+- **createHashの代替API**: Web Crypto API vs @std/crypto vs Node.js互換の選択基準、既存のMD5ハッシュとの互換性保証
+
+### **実装・運用面**
+- **GitHub Actions設定**: CI/CDワークフローの具体的な内容、Deno v2でのlint/format/testの実行コマンド、権限設定（--allow-env等）の必要性
+- **テストの実行方法**: 現在のテスト実行方法（コマンド、設定）、新しいJSR環境でのテスト実行確認
+- **既存スクリプトの扱い**: `scripts/format.sh`の完全置き換え vs 併用、他に影響を受けるスクリプトファイルの有無
+
+### **プロジェクト方針**
+- **バージョン管理**: 各フェーズでのコミット単位、動作しない中間状態の許容範囲
+- **エラー発生時の対応**: 各フェーズでの問題発生時のロールバック方針、想定外のAPI変更への対応手順
+- **パフォーマンス・動作確認**: 移行後の動作確認項目、パフォーマンス劣化の許容範囲
 
 ---
 *最終更新: 2025-08-17*
