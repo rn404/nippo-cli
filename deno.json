@@ -1,0 +1,38 @@
+{
+  "imports": {
+    "@std/path": "jsr:@std/path@^1.1.0",
+    "@std/flags": "jsr:@std/flags@^0.221.0", 
+    "@std/fs": "jsr:@std/fs@^1.0.0",
+    "@std/testing": "jsr:@std/testing@^1.0.0",
+    "cliffy": "https://deno.land/x/cliffy@v0.25.7/mod.ts"
+  },
+  "tasks": {
+    "run": "deno run --allow-read --allow-write --allow-env src/sava.ts"
+  },
+  "compilerOptions": {
+    "lib": ["deno.window"],
+    "strict": true
+  },
+  "lint": {
+    "files": {
+      "include": ["src/"]
+    },
+    "rules": {
+      "tags": ["recommended"],
+      "include": ["ban-untagged-todo"],
+      "exclude": ["no-unused-vars"]
+    }
+  },
+  "fmt": {
+    "files": {
+      "include": ["src/", "test/"]
+    },
+    "options": {
+      "useTabs": false,
+      "lineWidth": 80,
+      "indentWidth": 2,
+      "singleQuote": true,
+      "proseWrap": "preserve"
+    }
+  }
+}
