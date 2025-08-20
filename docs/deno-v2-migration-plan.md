@@ -70,7 +70,7 @@
 ## マイグレーション手順（改訂版）
 
 ### Phase 1: 基本設定とCI整備
-- [ ] **1.1** deno.jsonファイルの作成
+- [x] **1.1** deno.jsonファイルの作成
   - 既存の依存パッケージをimportsに指定
   - 基本的なTypeScript設定
   - runタスクのみ設定（他のタスクは後で追加）
@@ -88,21 +88,22 @@
   - 基本的な動作確認
 
 ### Phase 2: 依存関係の段階的更新
-- [ ] **2.1** 標準ライブラリの統合・更新（優先度：高）
+- [x] **2.1** 標準ライブラリの統合・更新（優先度：高）
   - 全stdライブラリを最新版に統一（現在：0.77.0〜0.123.0 → 統一版）
   - JSR移行（@std/fs, @std/path, @std/crypto, @std/testing）
   - 特に重要：createHash（std/hash廃止予定、懸念あり）、fs（API変更なし）、path、testing
+  - ✓ @std/flags → @std/cli/parse-args移行完了
 
-- [ ] **2.2** サードパーティライブラリの更新（優先度：高）
-  - **cliffy: v0.20.1 → v0.25.7**（Deno v2互換性修正、破壊的変更最小限）
-  - **dir → Deno標準API移行**（Deno.env.get("HOME")使用）
-  - **date_fns → Intl.DateTimeFormat移行**（標準API、依存関係削除）
+- [x] **2.2** サードパーティライブラリの更新（優先度：高）
+  - **cliffy: v0.20.1 → v0.20.1**（v0.25.7から0.20.1にダウングレード済み）
+  - **dir → Deno標準API移行**（Deno.env.get("HOME")使用）完了
+  - **date_fns → Intl.DateTimeFormat移行**（標準API、依存関係削除）完了
 
-- [ ] **2.3** テスト環境の統合（優先度：中）
+- [x] **2.3** テスト環境の統合（優先度：中）
   - test/dependencies.tsとsrc/dependencies.tsの統合
   - テスト用依存関係の最新化
 
-- [ ] **2.4** 追加タスクの設定
+- [x] **2.4** 追加タスクの設定
   - deno.jsonにtest、fmt、lint、devタスクを追加
   - scripts/format.shの置き換え
 
