@@ -2,50 +2,31 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
-    paths-ignore:
-      - '.gitignore'
-      - '.github/**'
-      - '.vscode/**'
-      - 'docs/**'
-      - '**/*.md'
+    branches: [main]
   pull_request:
-    branches:
-      - '**'
-    paths-ignore:
-      - '.gitignore'
-      - '.github/**'
-      - '.vscode/**'
-      - 'docs/**'
-      - '**/*.md'
+    branches: ['**']
 
 jobs:
-  source-guard:
-    if: github.event_name == 'pull_request'
+  changes:
     runs-on: ubuntu-latest
+    outputs:
+      matches: ${{ steps.filter.outputs['src'] || 'false' }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Deno
-        uses: denoland/setup-deno@v1
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v2
+        id: filter
         with:
-          deno-version: 2.2.6
+          filters: |
+            src:
+              - 'src/**'
+              - 'test/**'
+              - '!.gitignore'
+              - '!.github/**'
+              - '!.vscode/**'
+              - '!docs/**'
+              - '!**/*.md'
 
-      - name: Check source code quality
-        run: deno task source-guard
-
-  runtime-guard:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Deno
-        uses: denoland/setup-deno@v1
-        with:
-          deno-version: 2.2.6
-
-      - name: Run Tests
-        run: deno task runtime-guard
+  guard:
+    needs: changes
+    if: ${{ needs.changes.outputs.matches == 'true' }}
+    uses: ./.github/workflows/wc_ci.yml

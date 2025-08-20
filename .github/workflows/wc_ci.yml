@@ -1,0 +1,34 @@
+name: CI (on workflow call)
+
+on:
+  workflow_call:
+
+jobs:
+  source-guard:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: 2.4.3
+
+      - name: Check source code quality
+        run: deno task source-guard
+
+  runtime-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: 2.4.3
+
+      - name: Run Tests
+        run: deno task runtime-guard
