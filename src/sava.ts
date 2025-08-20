@@ -18,7 +18,8 @@ await new Command()
         'Add contents like memo item.',
       )
       .description('Add contents to nippo log.')
-      .action(async (options, contents) => {
+      // deno-lint-ignore no-explicit-any
+      .action(async (options: any, contents: any) => {
         await addCommand(options, contents);
       }),
   )
@@ -26,7 +27,8 @@ await new Command()
     'end <hash:string>',
     new Command()
       .description('end to task.')
-      .action(async (_options, hash) => {
+      // deno-lint-ignore no-explicit-any
+      .action(async (_options: any, hash: any) => {
         await endCommand(hash);
       }),
   )
@@ -34,7 +36,8 @@ await new Command()
     'del <hash:string>',
     new Command()
       .description('delete task.')
-      .action(async (_options, hash) => {
+      // deno-lint-ignore no-explicit-any
+      .action(async (_options: any, hash: any) => {
         await deleteCommand(hash);
       }),
   )
@@ -50,7 +53,8 @@ await new Command()
         '-s, --stat',
         'show summary of list',
       )
-      .action(async (options, hash) => {
+      // deno-lint-ignore no-explicit-any
+      .action(async (options: any, hash: any) => {
         await listCommand(options, hash);
       }),
   )
@@ -62,7 +66,8 @@ await new Command()
         '-a, --all',
         'clear all logs',
       )
-      .action(async (options) => {
+      // deno-lint-ignore no-explicit-any
+      .action(async (options: any) => {
         await clearCommand(options);
       }),
   )

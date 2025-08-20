@@ -1,10 +1,10 @@
 {
   "imports": {
     "@std/path": "jsr:@std/path@^1.1.0",
-    "@std/flags": "jsr:@std/flags@^0.221.0", 
     "@std/fs": "jsr:@std/fs@^1.0.0",
+    "@std/assert": "jsr:@std/assert@^1.0.13",
     "@std/testing": "jsr:@std/testing@^1.0.0",
-    "cliffy": "https://deno.land/x/cliffy@v0.25.7/mod.ts"
+    "cliffy": "https://deno.land/x/cliffy@v0.20.1/command/mod.ts"
   },
   "tasks": {
     "run": "deno run --allow-read --allow-write --allow-env src/sava.ts",

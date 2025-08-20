@@ -1,1 +1,1 @@
-export { assertEquals } from '@std/testing/asserts';
+export { assertEquals } from '@std/assert';
