@@ -1,15 +1,29 @@
-export { join } from 'https://deno.land/std@0.100.0/path/mod.ts';
-export { parse } from 'https://deno.land/std@0.100.0/flags/mod.ts';
-export { ensureDir } from 'https://deno.land/std@0.120.0/fs/ensure_dir.ts';
-export { ensureFile } from 'https://deno.land/std@0.120.0/fs/ensure_file.ts';
-export { createHash } from 'https://deno.land/std@0.77.0/hash/mod.ts';
+export { join } from '@std/path';
+export { ensureDir, ensureFile } from '@std/fs';
+// Using Node.js compatible crypto for hash functions
+import { createHash } from 'node:crypto';
+export { createHash };
 
-import homeDir from 'https://deno.land/x/dir@1.5.1/home_dir/mod.ts';
-import { walk } from 'https://deno.land/std@0.123.0/fs/walk.ts';
-import format from 'https://deno.land/x/date_fns@v2.22.1/format/index.js';
-export { format, homeDir, walk };
+import { walk } from '@std/fs';
 
-export {
-  Command,
-  HelpCommand,
-} from 'https://deno.land/x/cliffy@v0.20.1/command/mod.ts';
+// Replaced with native APIs
+const homeDir = (): string | undefined => {
+  return Deno.env.get('HOME') || Deno.env.get('USERPROFILE');
+};
+
+// Replaced with Intl.DateTimeFormat
+const formatTime = (date: Date): string => {
+  return new Intl.DateTimeFormat('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
+};
+
+const formatDate = (date: Date): string => {
+  return new Intl.DateTimeFormat('en-CA').format(date);
+};
+
+export { formatDate, formatTime, homeDir, walk };
+
+export { Command, HelpCommand } from 'cliffy';

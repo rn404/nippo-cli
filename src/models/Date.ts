@@ -19,6 +19,6 @@ export type DateString = `${DateYear}-${DateMonth}-${DateDay}`;
 
 export const isDateString = (value?: string): value is DateString => {
   if (value === undefined) return false;
-  // TODO regexp
+  // TODO(@rn404) regexp
   return Number.isNaN(new Date(value).getDate()) === false;
 };

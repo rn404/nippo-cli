@@ -1,4 +1,4 @@
-import { format } from '../dependencies.ts';
+import { formatTime } from '../dependencies.ts';
 import { DateFromISOString } from '../models/Date.ts';
 import { MemoItem } from '../models/MemoItem.ts';
 import { TaskItem } from '../models/TaskItem.ts';
@@ -13,7 +13,7 @@ const generateBreakLine = (): void => {
 
 const formatTimeString = (item: DateFromISOString): string => {
   // return `(${format(new Date(item), 'HH:mm:ss', {})})`
-  return `(${format(new Date(item), 'HH:mm', {})})`;
+  return `(${formatTime(new Date(item))})`;
 };
 
 const generateTaskListHeader = (): void => {

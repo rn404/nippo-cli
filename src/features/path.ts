@@ -1,10 +1,8 @@
 import { homeDir, join } from '../dependencies.ts';
 import { LOG_DIR } from '../const.ts';
 
-export const pathResolve = (path: Array<string>): string => {
-  return join(
-    ...path,
-  );
+export const pathResolve = (path: string[]): string => {
+  return join(...(path as [string, ...string[]]));
 };
 
 export const rootDir = (): string => {

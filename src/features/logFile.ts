@@ -39,9 +39,9 @@ export const statLogFile = async (
     };
   } catch (error: unknown) {
     if (error instanceof Deno.errors.NotFound) {
-      return undefined
+      return undefined;
     }
-    throw error
+    throw error;
   }
 };
 

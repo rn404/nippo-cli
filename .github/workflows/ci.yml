@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: ['**']
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      matches: ${{ steps.filter.outputs['src'] || 'false' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            src:
+              - 'src/**'
+              - 'test/**'
+              - '!.gitignore'
+              - '!.github/**'
+              - '!.vscode/**'
+              - '!docs/**'
+              - '!**/*.md'
+
+  guard:
+    needs: changes
+    if: ${{ needs.changes.outputs.matches == 'true' }}
+    uses: ./.github/workflows/wc_ci.yml

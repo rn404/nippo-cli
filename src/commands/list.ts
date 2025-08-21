@@ -45,12 +45,12 @@ export const listCommand = async (
     );
 
     if (logFile === undefined) {
-      // TODO
+      // TODO(@rn404) handle empty log case
       generateHeader(`Today's logs are...`);
       console.log('There is no body...');
-      return
+      return;
     }
-    const { fileName, body: log } = logFile
+    const { fileName, body: log } = logFile;
 
     if (options.stat === true) {
       if (hash === undefined || hash === '') {
@@ -91,7 +91,7 @@ export const listCommand = async (
 
     const logFiles: Array<LogFile> = await Promise.all(
       listLogFileNames.map(async (item) => {
-        return getLogFile(dir, item.fileName);
+        return await getLogFile(dir, item.fileName);
       }),
     );
     logFiles.forEach((logFile) =>

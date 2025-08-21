@@ -1,4 +1,4 @@
-import { format } from '../../dependencies.ts';
+import { formatDate } from '../../dependencies.ts';
 import { DateString } from '../Date.ts';
 import { LogFileName } from '../LogFileName.ts';
 
@@ -10,7 +10,7 @@ export class LogFileNameFactory {
   }
 
   private formatToDateString(date: Date): DateString {
-    return format(date, 'yyyy-MM-dd', {}) as DateString;
+    return formatDate(date) as DateString;
   }
 
   public create(date?: Date): LogFileName;
