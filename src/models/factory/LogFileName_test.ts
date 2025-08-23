@@ -1,5 +1,5 @@
-import { assertEquals } from '../../dependencies.ts';
-import { LogFileNameFactory } from '../../../src/models/factory/LogFileName.ts';
+import { assertEquals } from '../../../test/dependencies.ts';
+import { LogFileNameFactory } from './LogFileName.ts';
 
 class MockDateConstructor {
   constructor(value?: string | Date) {
