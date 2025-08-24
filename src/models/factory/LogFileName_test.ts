@@ -1,4 +1,4 @@
-import { assertEquals } from '../../../test/dependencies.ts';
+import { assertEquals } from '@std/assert';
 import { LogFileNameFactory } from './LogFileName.ts';
 
 class MockDateConstructor {
