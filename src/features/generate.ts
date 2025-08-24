@@ -1,4 +1,4 @@
-import { formatTime } from '../dependencies.ts';
+import { formatTime } from '../utils/formatTime.ts';
 import { DateFromISOString } from '../models/Date.ts';
 import { MemoItem } from '../models/MemoItem.ts';
 import { TaskItem } from '../models/TaskItem.ts';

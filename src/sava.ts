@@ -1,4 +1,4 @@
-import { Command, HelpCommand } from './dependencies.ts';
+import { Command, HelpCommand } from 'cliffy';
 import { APP_NAME, VERSION } from './const.ts';
 import { addCommand } from './commands/add.ts';
 import { endCommand } from './commands/end.ts';

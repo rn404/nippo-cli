@@ -1,4 +1,4 @@
-import { createHash } from './../dependencies.ts';
+import { createHash } from 'node:crypto';
 import { DateFromISOString } from './Date.ts';
 
 export class MemoItem {

@@ -1,4 +1,4 @@
-import { formatDate } from '../../dependencies.ts';
+import { formatDate } from '../../utils/formatDate.ts';
 import { DateString } from '../Date.ts';
 import { LogFileName } from '../LogFileName.ts';
 

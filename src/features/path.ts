@@ -1,5 +1,6 @@
-import { homeDir, join } from '../dependencies.ts';
+import { join } from '@std/path';
 import { LOG_DIR } from '../const.ts';
+import { homeDir } from '../utils/homeDir.ts';
 
 export const pathResolve = (path: string[]): string => {
   return join(...(path as [string, ...string[]]));

@@ -1,6 +1,8 @@
+import { walk } from '@std/fs';
+import { ensureFile } from '@std/fs';
+import { createHash } from 'node:crypto';
 import type { DateString } from '../models/Date.ts';
 import type { LogFile } from '../models/LogFile.ts';
-import { createHash, ensureFile, walk } from '../dependencies.ts';
 import { isDateString } from '../models/Date.ts';
 import { LogFileNameFactory } from '../models/factory/LogFileName.ts';
 import { compareDatesInDescent } from './hash.ts';
