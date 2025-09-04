@@ -7,7 +7,7 @@ on:
     branches: ['**']
 
 jobs:
-  changes:
+  affected-checks:
     runs-on: ubuntu-latest
     outputs:
       matches: ${{ steps.filter.outputs['src'] || 'false' }}
@@ -27,6 +27,6 @@ jobs:
               - '!**/*.md'
 
   guard:
-    needs: changes
-    if: ${{ needs.changes.outputs.matches == 'true' }}
+    needs: affected-checks
+    if: ${{ needs.affected-checks.outputs.matches == 'true' }}
     uses: ./.github/workflows/wc_ci.yml
