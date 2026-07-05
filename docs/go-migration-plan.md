@@ -208,36 +208,37 @@ type Log struct {
 
 ### Phase 1: Go プロジェクトの土台作り
 
-- [ ] **1.1** `go mod init`、ディレクトリ構成の作成
-- [ ] **1.2** `.mise.toml` に go を追加（deno と一時併存）
-- [ ] **1.3** cobra でコマンドの骨組み（`add` / `end` / `del` / `list` / `clear`）を定義
-- [ ] **1.4** CI に Go 用ジョブを追加（`gofmt` / `go vet` / `go test` / `golangci-lint`）
+- [x] **1.1** `go mod init`、ディレクトリ構成の作成
+- [x] **1.2** `.mise.toml` に go を追加（deno と一時併存）※ Go 1.26.4（計画時の 1.24 想定から更新）
+- [x] **1.3** cobra でコマンドの骨組み（`add` / `end` / `del` / `list` / `clear`）を定義
+- [x] **1.4** CI に Go 用ジョブを追加（`gofmt` / `go vet` / `go test` / `golangci-lint`、`go_ci.yml`）
   - 既存の `wc_ci.yml`（Deno 用）と並走させる
 
 ### Phase 2: ドメイン層の移植
 
-- [ ] **2.1** `internal/model`: `Item` / `Log` / `LogFile` 構造体と JSON 互換の確認
-  - Deno 版が書き出した実ファイルを `testdata/` から読み込むラウンドトリップテスト
-- [ ] **2.2** `internal/logfile`: 読み書き・一覧・新規作成（`~/.log/sava` 解決を含む）
-- [ ] **2.3** `internal/log`: addItem / deleteItem / finishTaskItem / listItems の移植
-  - ここで ID 生成を新方式（`crypto/rand` によるランダム短縮 ID）に置き換える
-- [ ] **2.4** `internal/view`: 出力整形の移植（Phase 0 のサンプルと比較し、表示される情報に過不足がないことを確認）
+- [x] **2.1** `internal/model`: `Item` / `Log` / `LogFile` 構造体と JSON 互換の確認
+  - レガシーファイルとのバイト一致ラウンドトリップテストで確認済み
+- [x] **2.2** `internal/logfile`: 読み書き・一覧・新規作成（`~/.log/sava` 解決を含む、パス二重化バグ修正）
+- [x] **2.3** `internal/log`: addItem / deleteItem / finishTaskItem / listItems の移植
+  - ID 生成を新方式（`crypto/rand` による 8 文字 hex）に置き換え済み
+- [x] **2.4** `internal/view`: 出力整形の移植（Phase 0 のサンプルと比較し、表示される情報に過不足がないことを確認）
 
 ### Phase 3: コマンド層の移植
 
-- [ ] **3.1** `add`（`-m` フラグ含む）
-- [ ] **3.2** `end` / `del`
-- [ ] **3.3** `list`（`-a` / `-s` / 日付指定、確認プロンプト含む）
-- [ ] **3.4** `clear`（`-a`、確認プロンプト含む）
-- [ ] **3.5** 確認プロンプトのスキップオプション（`--yes` など）の追加（非対話環境向け）
-- [ ] **3.6** `help` / `--version`（`v0.1.0`、表示名 `sava`）
+- [x] **3.1** `add`（`-m` フラグ含む）
+- [x] **3.2** `end` / `del`
+- [x] **3.3** `list`（`-a` / `-s` / 日付指定、確認プロンプト含む）
+- [x] **3.4** `clear`（`-a`、確認プロンプト含む）
+- [x] **3.5** 確認プロンプトのスキップオプション（`--yes` / `-y`）の追加（非対話環境向け）
+- [x] **3.6** `help` / `--version`（`v0.1.0`、表示名 `sava`）
 
 ### Phase 4: 検証と切り替え
 
-- [ ] **4.1** 実データでの並行動作確認（Deno 版で作った `~/.log/sava` を Go 版で読み書き）
-- [ ] **4.2** Phase 0 のサンプルと比較し、機能面のデグレがないことを確認
-- [ ] **4.3** README の Usage を Go 版に更新
-- [ ] **4.4** goreleaser 設定（任意）と `go install` 手順の整備
+- [x] **4.1** 実データでの並行動作確認（Deno 版で作った `~/.log/sava` を Go 版で読み書き、逆方向も確認）
+- [x] **4.2** Phase 0 のサンプルと比較し、機能面のデグレがないことを確認
+  - 加えて hash バグ・`clear` バグの修正が意図通り機能することを実機確認
+- [x] **4.3** README の Usage を Go 版に更新
+- [x] **4.4** `go install` 手順を README に整備（goreleaser は任意のため今回は見送り、必要になったら導入）
 
 ### Phase 5: Deno 資産の撤去
 
