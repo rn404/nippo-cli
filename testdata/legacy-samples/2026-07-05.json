@@ -1,0 +1,26 @@
+{
+  "hash": "[object Object]",
+  "freezed": false,
+  "items": [
+    {
+      "hash": "[object Object]",
+      "content": "buy cabbage",
+      "createdAt": "2026-07-05T08:43:04.971Z",
+      "updatedAt": "2026-07-05T08:44:12.345Z",
+      "closed": true
+    },
+    {
+      "hash": "[object Object]",
+      "content": "feed the shrimp",
+      "createdAt": "2026-07-05T08:43:05.026Z",
+      "updatedAt": "2026-07-05T08:43:05.026Z",
+      "closed": false
+    },
+    {
+      "hash": "[object Object]",
+      "content": "shrimp looks happy today",
+      "createdAt": "2026-07-05T08:43:05.073Z",
+      "updatedAt": "2026-07-05T08:43:05.073Z"
+    }
+  ]
+}
