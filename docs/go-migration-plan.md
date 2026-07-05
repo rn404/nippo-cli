@@ -238,7 +238,8 @@ type Log struct {
 - [x] **4.2** Phase 0 のサンプルと比較し、機能面のデグレがないことを確認
   - 加えて hash バグ・`clear` バグの修正が意図通り機能することを実機確認
 - [x] **4.3** README の Usage を Go 版に更新
-- [x] **4.4** `go install` 手順を README に整備（goreleaser は任意のため今回は見送り、必要になったら導入）
+- [x] **4.4** `go install` 手順を README に整備
+  - 追記: リリースバイナリ用 CI（`release.yml`）を移行後に追加。goreleaser は Actions 許可リストへの追加が必要になるため採用せず、GitHub 製アクション + `go build` + `gh release` のみで構成（`v*` タグ push で発火）
 
 ### Phase 5: Deno 資産の撤去
 

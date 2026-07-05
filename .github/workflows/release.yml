@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build binaries
+        run: |
+          mkdir -p dist
+          for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64; do
+            export GOOS=${target%/*} GOARCH=${target#*/}
+            ext=""
+            [ "$GOOS" = "windows" ] && ext=".exe"
+            name="sava_${GITHUB_REF_NAME}_${GOOS}_${GOARCH}"
+            CGO_ENABLED=0 go build -trimpath \
+              -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" \
+              -o "dist/${name}/sava${ext}" ./cmd/sava
+            if [ "$GOOS" = "windows" ]; then
+              (cd dist && zip -q -r "${name}.zip" "$name")
+            else
+              tar -czf "dist/${name}.tar.gz" -C dist "$name"
+            fi
+            rm -r "dist/${name}"
+          done
+
+      - name: Checksums
+        run: (cd dist && shasum -a 256 ./* > checksums.txt)
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --generate-notes
