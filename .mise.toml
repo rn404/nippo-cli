@@ -1,2 +1,4 @@
 [tools]
 go = "1.26.4"
+# Keep in sync with .github/workflows/go_ci.yml
+golangci-lint = "2.12.2"

@@ -68,6 +68,7 @@ go run ./cmd/sava <command>
 go test ./...
 gofmt -l .
 go vet ./...
+golangci-lint run   # version is pinned in .mise.toml (mise install)
 ```
 
 ## History

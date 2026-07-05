@@ -64,6 +64,30 @@ func TestUpdateAndReload(t *testing.T) {
 	}
 }
 
+func TestFilePermissions(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "logs")
+	file, err := Get(dir, "2026-07-05")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	info, err := os.Stat(file.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := info.Mode().Perm(); got != 0o600 {
+		t.Errorf("log file mode = %o, want 600 (owner-only)", got)
+	}
+
+	dirInfo, err := os.Stat(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := dirInfo.Mode().Perm(); got != 0o700 {
+		t.Errorf("log dir mode = %o, want 700 (owner-only)", got)
+	}
+}
+
 func TestUpdateFreezedLog(t *testing.T) {
 	body := model.NewLog()
 	body.Freezed = true

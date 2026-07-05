@@ -121,7 +121,8 @@ func Update(dir, day string, body model.Log) error {
 		return err
 	}
 
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	// Logs are personal notes: keep them readable by the owner only.
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
 
@@ -130,7 +131,7 @@ func Update(dir, day string, body model.Log) error {
 		return err
 	}
 
-	return os.WriteFile(pathFor(dir, name), data, 0o644)
+	return os.WriteFile(pathFor(dir, name), data, 0o600)
 }
 
 // List returns refs to all daily log files in dir, sorted by date in
