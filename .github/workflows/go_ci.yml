@@ -15,8 +15,8 @@ jobs:
     outputs:
       matches: ${{ steps.filter.outputs['go'] || 'false' }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v2
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: dorny/paths-filter@7267a8516b6f92bdb098633497bad573efdbf271 # v2.12.0
         id: filter
         with:
           filters: |
@@ -31,8 +31,8 @@ jobs:
     if: ${{ needs.affected-checks.outputs.matches == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: go.mod
       - name: Check formatting
@@ -42,7 +42,7 @@ jobs:
       - name: Test
         run: go test ./...
       - name: Lint
-        uses: golangci/golangci-lint-action@v8
+        uses: golangci/golangci-lint-action@4afd733a84b1f43292c63897423277bb7f4313a9 # v8.0.0
         with:
           # Keep in sync with .mise.toml for local reproducibility.
           version: v2.12.2
