@@ -19,7 +19,7 @@ https://gist.github.com/rn404/decf010fc48d7d8688116af0f4427b44
 go install github.com/rn404/nippo-cli/cmd/sava@latest
 ```
 
-ビルド済みバイナリ (macOS / Linux / Windows) は
+ビルド済みバイナリ (macOS / Linux) は
 [Releases](https://github.com/rn404/nippo-cli/releases) からも取得できます.
 `v*` タグを push すると CI がバイナリをビルドしてリリースを作成します.
 

@@ -22,19 +22,13 @@ jobs:
       - name: Build binaries
         run: |
           mkdir -p dist
-          for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64; do
+          for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64; do
             export GOOS=${target%/*} GOARCH=${target#*/}
-            ext=""
-            [ "$GOOS" = "windows" ] && ext=".exe"
             name="sava_${GITHUB_REF_NAME}_${GOOS}_${GOARCH}"
             CGO_ENABLED=0 go build -trimpath \
               -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" \
-              -o "dist/${name}/sava${ext}" ./cmd/sava
-            if [ "$GOOS" = "windows" ]; then
-              (cd dist && zip -q -r "${name}.zip" "$name")
-            else
-              tar -czf "dist/${name}.tar.gz" -C dist "$name"
-            fi
+              -o "dist/${name}/sava" ./cmd/sava
+            tar -czf "dist/${name}.tar.gz" -C dist "$name"
             rm -r "dist/${name}"
           done
 
