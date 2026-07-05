@@ -1,0 +1,39 @@
+name: Release PR
+
+# Creates a release pull request that bumps cmd/sava/version.txt.
+# Merging that PR is the release approval: release.yml then builds,
+# tags, and publishes using the PR body as release notes.
+#
+# Note: PRs created with GITHUB_TOKEN do not trigger other workflows,
+# so no CI runs on the release PR itself. The diff is version.txt
+# only, and release.yml runs go test before publishing.
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version bump level
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Create release PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          make release-pr BUMP="${{ inputs.bump }}"

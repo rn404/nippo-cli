@@ -8,3 +8,6 @@ docs/.obsidian/
 
 # Go build artifacts
 /sava
+
+# Release build artifacts
+/dist/

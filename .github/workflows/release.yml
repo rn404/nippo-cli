@@ -1,8 +1,13 @@
 name: Release
 
+# Runs when a release PR (created by release-pr.yml) is merged:
+# builds binaries, creates the version tag, and publishes a GitHub
+# Release using the merged PR body as release notes.
+
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+    paths: ['cmd/sava/version.txt']
 
 permissions:
   contents: write
@@ -12,30 +17,45 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Read version
+        id: version
+        run: echo "tag=$(cat cmd/sava/version.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Skip if already released
+        id: guard
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if git ls-remote --tags origin "refs/tags/$TAG" | grep -q .; then
+            echo "Tag $TAG already exists; skipping release."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        if: steps.guard.outputs.exists != 'true'
         with:
           go-version-file: go.mod
 
       - name: Test
+        if: steps.guard.outputs.exists != 'true'
         run: go test ./...
 
       - name: Build binaries
-        run: |
-          mkdir -p dist
-          for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64; do
-            export GOOS=${target%/*} GOARCH=${target#*/}
-            name="sava_${GITHUB_REF_NAME}_${GOOS}_${GOARCH}"
-            CGO_ENABLED=0 go build -trimpath \
-              -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" \
-              -o "dist/${name}/sava" ./cmd/sava
-            tar -czf "dist/${name}.tar.gz" -C dist "$name"
-            rm -r "dist/${name}"
-          done
+        if: steps.guard.outputs.exists != 'true'
+        run: make release-build TAG="${{ steps.version.outputs.tag }}"
 
-      - name: Checksums
-        run: (cd dist && shasum -a 256 ./* > checksums.txt)
-
-      - name: Create GitHub Release
+      - name: Publish release
+        if: steps.guard.outputs.exists != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --generate-notes
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          # Release notes = body of the PR that introduced this commit.
+          gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" \
+            --jq '.[0].body // empty' > notes.md
+          if [ ! -s notes.md ]; then
+            echo "Release $TAG" > notes.md
+          fi
+          gh release create "$TAG" dist/* \
+            --title "$TAG" --notes-file notes.md --target "$GITHUB_SHA"

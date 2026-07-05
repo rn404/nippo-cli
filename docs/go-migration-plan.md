@@ -239,7 +239,8 @@ type Log struct {
   - 加えて hash バグ・`clear` バグの修正が意図通り機能することを実機確認
 - [x] **4.3** README の Usage を Go 版に更新
 - [x] **4.4** `go install` 手順を README に整備
-  - 追記: リリースバイナリ用 CI（`release.yml`）を移行後に追加。goreleaser は Actions 許可リストへの追加が必要になるため採用せず、GitHub 製アクション + `go build` + `gh release` のみで構成（`v*` タグ push で発火）
+  - 追記: リリース用 CI を移行後に追加。goreleaser は Actions 許可リストへの追加が必要になるため採用せず、GitHub 製アクション + `go build` + `gh` のみで構成
+  - ライフサイクル: `release-pr.yml`（dispatch でバージョンバンプ PR を自動作成）→ PR マージ = リリース承認 → `release.yml`（`cmd/sava/version.txt` の変更を検知してテスト・ビルド・タグ・Release 公開、PR 本文がリリースノート）
 
 ### Phase 5: Deno 資産の撤去
 
