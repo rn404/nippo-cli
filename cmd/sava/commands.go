@@ -1,23 +1,23 @@
 package main
 
 import (
-	"errors"
-
 	"github.com/spf13/cobra"
+
+	"github.com/rn404/nippo-cli/internal/command"
+	"github.com/rn404/nippo-cli/internal/logfile"
 )
 
-var errNotImplemented = errors.New("not implemented yet")
-
 func newAddCommand() *cobra.Command {
+	var memo bool
 	cmd := &cobra.Command{
 		Use:   "add <contents>",
 		Short: "Add contents to nippo log.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return errNotImplemented
+			return command.Add(logfile.Dir(), args[0], memo)
 		},
 	}
-	cmd.Flags().BoolP("memo", "m", false, "Add contents like memo item.")
+	cmd.Flags().BoolVarP(&memo, "memo", "m", false, "Add contents like memo item.")
 	return cmd
 }
 
@@ -27,7 +27,7 @@ func newEndCommand() *cobra.Command {
 		Short: "end to task.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return errNotImplemented
+			return command.End(cmd.OutOrStdout(), logfile.Dir(), args[0])
 		},
 	}
 }
@@ -38,35 +38,41 @@ func newDelCommand() *cobra.Command {
 		Short: "delete task.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return errNotImplemented
+			return command.Del(logfile.Dir(), args[0])
 		},
 	}
 }
 
 func newListCommand() *cobra.Command {
+	opts := command.ListOptions{}
 	cmd := &cobra.Command{
 		Use:   "list [date]",
 		Short: "list all logs.",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return errNotImplemented
+			if len(args) == 1 {
+				opts.Date = args[0]
+			}
+			return command.List(cmd.OutOrStdout(), cmd.InOrStdin(), logfile.Dir(), opts)
 		},
 	}
-	cmd.Flags().BoolP("all", "a", false, "show all logs")
-	cmd.Flags().BoolP("stat", "s", false, "show summary of list")
+	cmd.Flags().BoolVarP(&opts.All, "all", "a", false, "show all logs")
+	cmd.Flags().BoolVarP(&opts.Stat, "stat", "s", false, "show summary of list")
+	cmd.Flags().BoolVarP(&opts.Yes, "yes", "y", false, "skip confirmation prompts")
 	return cmd
 }
 
 func newClearCommand() *cobra.Command {
+	var all, yes bool
 	cmd := &cobra.Command{
 		Use:   "clear",
 		Short: "delete log",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return errNotImplemented
+			return command.Clear(cmd.OutOrStdout(), cmd.InOrStdin(), logfile.Dir(), all, yes)
 		},
 	}
-	cmd.Flags().BoolP("all", "a", false, "clear all logs")
-	cmd.Flags().BoolP("yes", "y", false, "skip confirmation prompts")
+	cmd.Flags().BoolVarP(&all, "all", "a", false, "clear all logs")
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "skip confirmation prompts")
 	return cmd
 }
