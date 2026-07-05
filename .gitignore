@@ -3,3 +3,8 @@
 
 # Testing dummy files
 test/dummy_log_dir/*
+# Obsidian editor config
+docs/.obsidian/
+
+# Go build artifacts
+/sava
