@@ -242,10 +242,15 @@ type Log struct {
 
 ### Phase 5: Deno 資産の撤去
 
-- [ ] **5.1** `src/`、`deno.json`、`deno.lock` の削除
-- [ ] **5.2** CI から Deno ジョブ（`wc_ci.yml` ほか）を削除、paths-filter の対象を Go に更新（`sonar.yml` は存続）
-- [ ] **5.3** `.mise.toml` から deno を削除
-- [ ] **5.4** `docs/deno-v2-migration-plan.md` をアーカイブ扱いに（削除 or 注記）
+- [x] **5.1** `src/`、`deno.json`、`deno.lock` の削除（`.vscode/` の Deno 設定も削除）
+- [x] **5.2** CI から Deno ジョブ（`ci.yml` / `wc_ci.yml`）を削除。Go 用 paths-filter は `go_ci.yml` に設定済み（`sonar.yml` は存続）
+- [x] **5.3** `.mise.toml` から deno を削除
+- [x] **5.4** `docs/deno-v2-migration-plan.md` にアーカイブ注記を追加
+
+## 移行完了
+
+全フェーズが 2026-07-05 に完了。残作業は GitHub 上でのデフォルトブランチ切り替え
+（`migrate` → main への反映）のみ。
 
 ## 想定される課題と対策
 
