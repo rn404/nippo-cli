@@ -1,0 +1,44 @@
+name: Go CI
+
+on:
+  push:
+    branches: [main, migrate]
+  pull_request:
+    branches: ['**']
+
+jobs:
+  affected-checks:
+    runs-on: ubuntu-latest
+    outputs:
+      matches: ${{ steps.filter.outputs['go'] || 'false' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            go:
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
+              - '.github/workflows/go_ci.yml'
+
+  guard:
+    needs: affected-checks
+    if: ${{ needs.affected-checks.outputs.matches == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Check formatting
+        run: test -z "$(gofmt -l .)"
+      - name: Vet
+        run: go vet ./...
+      - name: Test
+        run: go test ./...
+      - name: Lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: latest
