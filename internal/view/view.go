@@ -1,6 +1,6 @@
 // Package view renders command output. The layout follows the former
-// Deno implementation (see testdata/legacy-samples/outputs.md);
-// wording equivalence is functional, not character-exact.
+// Deno implementation; wording equivalence is functional, not
+// character-exact.
 package view
 
 import (
