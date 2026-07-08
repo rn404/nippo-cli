@@ -12,11 +12,28 @@ import (
 
 func TestStatMissingFile(t *testing.T) {
 	file, err := Stat(t.TempDir(), "2026-07-05")
-	if err != nil {
-		t.Fatal(err)
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("err = %v, want ErrNotFound", err)
 	}
 	if file != nil {
 		t.Errorf("Stat for missing file should return nil, got %+v", file)
+	}
+}
+
+func TestStatBrokenFile(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "2026-07-05.json"), []byte("{broken"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := Stat(dir, "2026-07-05"); err == nil || errors.Is(err, ErrNotFound) {
+		t.Errorf("broken JSON should surface a parse error, got %v", err)
+	}
+}
+
+func TestUpdateInvalidDate(t *testing.T) {
+	if err := Update(t.TempDir(), "not-a-date", model.NewLog()); err == nil {
+		t.Error("Update with an invalid date should fail")
 	}
 }
 

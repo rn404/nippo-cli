@@ -1,6 +1,7 @@
 package command
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,11 +15,11 @@ import (
 func todayItems(t *testing.T, dir string) []model.Item {
 	t.Helper()
 	file, err := logfile.Stat(dir, "")
+	if errors.Is(err, logfile.ErrNotFound) {
+		return nil
+	}
 	if err != nil {
 		t.Fatal(err)
-	}
-	if file == nil {
-		return nil
 	}
 	return file.Body.Items
 }

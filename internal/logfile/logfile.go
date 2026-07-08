@@ -19,8 +19,12 @@ const (
 	fileExt    = ".json"
 )
 
-// ErrFreezed is returned when attempting to update a frozen log file.
-var ErrFreezed = errors.New("this log file is freezed, no updates")
+var (
+	// ErrFreezed is returned when attempting to update a frozen log file.
+	ErrFreezed = errors.New("this log file is freezed, no updates")
+	// ErrNotFound is returned by Stat when the day has no log file.
+	ErrNotFound = errors.New("log file not found")
+)
 
 // LogFile is a loaded daily log file.
 type LogFile struct {
@@ -61,8 +65,8 @@ func resolveName(day string) (string, error) {
 	return day, nil
 }
 
-// Stat loads the log file for day (today if empty). It returns nil
-// without error when the file does not exist.
+// Stat loads the log file for day (today if empty). It returns an
+// error wrapping ErrNotFound when the file does not exist.
 func Stat(dir, day string) (*LogFile, error) {
 	name, err := resolveName(day)
 	if err != nil {
@@ -70,9 +74,9 @@ func Stat(dir, day string) (*LogFile, error) {
 	}
 
 	path := pathFor(dir, name)
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // path is the log dir joined with a strictly validated date
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, nil
+		return nil, fmt.Errorf("%s: %w", name, ErrNotFound)
 	}
 	if err != nil {
 		return nil, err
@@ -90,11 +94,11 @@ func Stat(dir, day string) (*LogFile, error) {
 // one when it does not exist yet.
 func Get(dir, day string) (*LogFile, error) {
 	file, err := Stat(dir, day)
-	if err != nil {
-		return nil, err
-	}
-	if file != nil {
+	if err == nil {
 		return file, nil
+	}
+	if !errors.Is(err, ErrNotFound) {
+		return nil, err
 	}
 
 	name, err := resolveName(day)

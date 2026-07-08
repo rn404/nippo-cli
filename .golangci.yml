@@ -1,6 +1,15 @@
 version: "2"
 
 linters:
+  enable:
+    - gocritic
+    - godot
+    - gosec
+    - misspell
+    - nilnil
+    - revive
+    - unconvert
+    - unparam
   settings:
     errcheck:
       # CLI output to stdout/stderr: write errors are not actionable.
@@ -8,3 +17,10 @@ linters:
         - fmt.Fprint
         - fmt.Fprintf
         - fmt.Fprintln
+  exclusions:
+    rules:
+      # Tests read fixtures and write into t.TempDir(); the file
+      # permission and path-from-variable findings do not apply.
+      - path: _test\.go
+        linters:
+          - gosec

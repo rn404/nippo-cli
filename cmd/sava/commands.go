@@ -13,7 +13,7 @@ func newAddCommand() *cobra.Command {
 		Use:   "add <contents>",
 		Short: "Add contents to nippo log.",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			return command.Add(logfile.Dir(), args[0], memo)
 		},
 	}
@@ -37,7 +37,7 @@ func newDelCommand() *cobra.Command {
 		Use:   "del <hash>",
 		Short: "delete task.",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			return command.Del(logfile.Dir(), args[0])
 		},
 	}
@@ -68,7 +68,7 @@ func newClearCommand() *cobra.Command {
 		Use:   "clear",
 		Short: "delete log",
 		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			return command.Clear(cmd.OutOrStdout(), cmd.InOrStdin(), logfile.Dir(), all, yes)
 		},
 	}
