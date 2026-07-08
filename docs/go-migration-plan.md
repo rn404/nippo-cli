@@ -198,8 +198,8 @@ type Log struct {
 ### Phase 0: 仕様の固定（サンプル採取）
 
 - [x] **0.1** 現行 Deno 版の入出力仕様を記録（2026-07-05 完了）
-  - 各コマンドの出力サンプルを `testdata/legacy-samples/outputs.md` に保存
-  - サンプルのログ JSON を `testdata/legacy-samples/2026-07-05.json` に保存
+  - 各コマンドの出力サンプルを `testdata/legacy-samples/outputs.md` に保存（移行完了後に役目をおえたため削除。内容は git 履歴を参照）
+  - サンプルのログ JSON を `testdata/legacy-samples/2026-07-05.json` に保存（JSON フォーマットの退行ガードとしてテストで使用継続）
   - 実測により hash バグ（`"[object Object]"` が保存される）と `clear` のパス二重化バグ（前述 5）を確認
 - [x] **0.2** 互換性の範囲を決定（2026-07-05 決定済み）
   - **維持する**: コマンド体系、ログ JSON フォーマット、保存先パス、出力される情報（文言の完全一致は目指さない）
