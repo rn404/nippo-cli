@@ -1,17 +1,23 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
 
 const appName = "sava"
 
-// version is overridable at build time:
-// go build -ldflags "-X main.version=vX.Y.Z"
-var version = "v0.1.0"
+// versionFile is the single source of truth for the version, bumped
+// by the release PR workflow (.github/workflows/release-pr.yml).
+//
+//go:embed version.txt
+var versionFile string
+
+var version = strings.TrimSpace(versionFile)
 
 func main() {
 	root := newRootCommand()

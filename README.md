@@ -19,6 +19,21 @@ https://gist.github.com/rn404/decf010fc48d7d8688116af0f4427b44
 go install github.com/rn404/nippo-cli/cmd/sava@latest
 ```
 
+ビルド済みバイナリ (macOS / Linux) は
+[Releases](https://github.com/rn404/nippo-cli/releases) からも取得できます.
+
+## Release lifecycle
+
+バージョンの単一の真実は `cmd/sava/version.txt` (`go:embed` でバイナリに埋め込み).
+
+1. Actions で「Release PR」workflow を dispatch し, bump レベル (patch / minor / major) を選択
+2. `version.txt` を更新した Release PR が自動で作られる (本文には変更点一覧が自動生成される)
+3. PR 本文をリリースノートとして整えて, **マージ = リリース承認**
+4. マージを検知して release workflow が起動し, テスト・バイナリビルド・タグ作成・GitHub Release 公開まで自動実行 (マージ時点の PR 本文がそのままリリースノートになる)
+
+リリース処理の実体は `scripts/` にあり, Makefile 経由でローカルでも実行できます
+(例: `make release-build TAG=v0.1.0` で `dist/` にバイナリを生成).
+
 ## Usage
 
 ```
@@ -64,11 +79,15 @@ sava clear -a
 # Run from source
 go run ./cmd/sava <command>
 
-# Test / format / lint
-go test ./...
-gofmt -l .
-go vet ./...
-golangci-lint run   # version is pinned in .mise.toml (mise install)
+# Test / format / vet / lint at once
+make check
+
+# Individual targets
+make test
+make fmt
+make vet
+make lint   # golangci-lint: version is pinned in .mise.toml (mise install)
+make build
 ```
 
 ## History
