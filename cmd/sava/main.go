@@ -1,3 +1,5 @@
+// Command sava is a console memo tool that helps writing daily
+// reports (nippo) without leaving the terminal.
 package main
 
 import (

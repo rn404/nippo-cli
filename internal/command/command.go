@@ -5,6 +5,7 @@ package command
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -113,7 +114,7 @@ func List(w io.Writer, r io.Reader, dir string, opts ListOptions) error {
 
 func listOneDay(w io.Writer, dir string, opts ListOptions) error {
 	file, err := logfile.Stat(dir, opts.Date)
-	if err != nil {
+	if err != nil && !errors.Is(err, logfile.ErrNotFound) {
 		return err
 	}
 

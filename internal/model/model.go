@@ -16,6 +16,9 @@ const DateLayout = "2006-01-02"
 // isoLayout mirrors JavaScript's Date.toISOString() (UTC, milliseconds).
 const isoLayout = "2006-01-02T15:04:05.000Z"
 
+// idBytes is the entropy of an item/file ID (hex-encoded to 8 chars).
+const idBytes = 4
+
 // Item is a single log entry. The presence of Closed distinguishes a
 // task (non-nil) from a memo (nil).
 type Item struct {
@@ -26,27 +29,11 @@ type Item struct {
 	Closed    *bool  `json:"closed,omitempty"`
 }
 
-// Log is the body of one daily log file.
-type Log struct {
-	Hash    string `json:"hash"`
-	Freezed bool   `json:"freezed"`
-	Items   []Item `json:"items"`
-}
-
-// IsTask reports whether the item is a task (has a closed flag).
-func (i Item) IsTask() bool {
-	return i.Closed != nil
-}
-
-// IsClosed reports whether the item is a finished task.
-func (i Item) IsClosed() bool {
-	return i.Closed != nil && *i.Closed
-}
-
 // NewTaskItem creates an open task with a fresh ID and timestamps.
 func NewTaskItem(content string) Item {
 	now := NowISO()
 	closed := false
+
 	return Item{
 		Hash:      NewID(),
 		Content:   content,
@@ -59,12 +46,30 @@ func NewTaskItem(content string) Item {
 // NewMemoItem creates a memo with a fresh ID and timestamps.
 func NewMemoItem(content string) Item {
 	now := NowISO()
+
 	return Item{
 		Hash:      NewID(),
 		Content:   content,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
+}
+
+// IsTask reports whether the item is a task (has a closed flag).
+func (i Item) IsTask() bool {
+	return i.Closed != nil
+}
+
+// IsClosed reports whether the item is a finished task.
+func (i Item) IsClosed() bool {
+	return i.Closed != nil && *i.Closed
+}
+
+// Log is the body of one daily log file.
+type Log struct {
+	Hash    string `json:"hash"`
+	Freezed bool   `json:"freezed"`
+	Items   []Item `json:"items"`
 }
 
 // NewLog creates an empty, unfrozen log body.
@@ -78,11 +83,12 @@ func NewLog() Log {
 
 // NewID returns a random 8-character hex ID used as item/file hash.
 func NewID() string {
-	buf := make([]byte, 4)
+	buf := make([]byte, idBytes)
 	if _, err := rand.Read(buf); err != nil {
 		// crypto/rand never fails on supported platforms; fall back to time.
 		return fmt.Sprintf("%08x", time.Now().UnixNano()&0xffffffff)
 	}
+
 	return hex.EncodeToString(buf)
 }
 
@@ -97,6 +103,7 @@ func ParseDate(value string) (time.Time, error) {
 	if err != nil {
 		return time.Time{}, fmt.Errorf("invalid date %q: expected format yyyy-MM-dd", value)
 	}
+
 	return t, nil
 }
 
