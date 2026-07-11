@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/rn404/nippo-cli/internal/model"
 )
@@ -18,6 +19,8 @@ var (
 	ErrAlreadyFinished = errors.New("target item is already finished")
 	// ErrAlreadyStarted is returned when starting a started task.
 	ErrAlreadyStarted = errors.New("target item is already started")
+	// ErrEmptyTag is returned when a tag is empty after trimming.
+	ErrEmptyTag = errors.New("tag must not be empty")
 )
 
 // Add appends a new task or memo to the log and returns the created item.
@@ -95,6 +98,113 @@ func Start(l *model.Log, hash string) (model.Item, error) {
 	}
 
 	return model.Item{}, fmt.Errorf("target item %q is not found", hash)
+}
+
+// normalizeTags trims whitespace and deduplicates tags while keeping
+// their order. Empty tags and tags containing whitespace are rejected.
+func normalizeTags(tags []string) ([]string, error) {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(tags))
+	for _, tag := range tags {
+		tag = strings.TrimSpace(tag)
+		if tag == "" {
+			return nil, ErrEmptyTag
+		}
+		if strings.ContainsAny(tag, " \t") {
+			return nil, fmt.Errorf("tag %q must not contain whitespace", tag)
+		}
+		if !seen[tag] {
+			seen[tag] = true
+			out = append(out, tag)
+		}
+	}
+	return out, nil
+}
+
+// AddTags adds tags to the item matching hash (tasks and memos alike)
+// and returns the updated item. Already present tags are skipped.
+func AddTags(l *model.Log, hash string, tags []string) (model.Item, error) {
+	tags, err := normalizeTags(tags)
+	if err != nil {
+		return model.Item{}, err
+	}
+
+	for i, item := range l.Items {
+		if item.Hash != hash {
+			continue
+		}
+
+		changed := false
+		for _, tag := range tags {
+			if !item.HasTag(tag) {
+				item.Tags = append(item.Tags, tag)
+				changed = true
+			}
+		}
+		if changed {
+			item.UpdatedAt = model.NowISO()
+		}
+		l.Items[i] = item
+		return item, nil
+	}
+
+	return model.Item{}, fmt.Errorf("target item %q is not found", hash)
+}
+
+// RemoveTags removes tags from the item matching hash and returns the
+// updated item. Tags the item does not carry are ignored.
+func RemoveTags(l *model.Log, hash string, tags []string) (model.Item, error) {
+	tags, err := normalizeTags(tags)
+	if err != nil {
+		return model.Item{}, err
+	}
+
+	drop := map[string]bool{}
+	for _, tag := range tags {
+		drop[tag] = true
+	}
+
+	for i, item := range l.Items {
+		if item.Hash != hash {
+			continue
+		}
+
+		kept := item.Tags[:0]
+		for _, tag := range item.Tags {
+			if !drop[tag] {
+				kept = append(kept, tag)
+			}
+		}
+		if len(kept) != len(item.Tags) {
+			item.UpdatedAt = model.NowISO()
+		}
+		if len(kept) == 0 {
+			kept = nil
+		}
+		item.Tags = kept
+		l.Items[i] = item
+		return item, nil
+	}
+
+	return model.Item{}, fmt.Errorf("target item %q is not found", hash)
+}
+
+// FilterByTags returns the items matching the tags: all of them by
+// default, or at least one when anyMatch is true.
+func FilterByTags(items []model.Item, tags []string, anyMatch bool) []model.Item {
+	var out []model.Item
+	for _, item := range items {
+		matched := 0
+		for _, tag := range tags {
+			if item.HasTag(tag) {
+				matched++
+			}
+		}
+		if (anyMatch && matched > 0) || (!anyMatch && matched == len(tags)) {
+			out = append(out, item)
+		}
+	}
+	return out
 }
 
 // Split separates the log items into tasks and memos, each sorted by

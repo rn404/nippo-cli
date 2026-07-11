@@ -77,6 +77,31 @@ func TestStartFlow(t *testing.T) {
 	}
 }
 
+func TestTagFlow(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	mustExecute(t, "add", "-t", "cabbage,food", "buy cabbage")
+
+	out := mustExecute(t, "list", "-t", "cabbage")
+	if !strings.Contains(out, "buy cabbage") || !strings.Contains(out, "#cabbage #food") {
+		t.Errorf("tagged item should be listed with tags:\n%s", out)
+	}
+
+	out = mustExecute(t, "list", "-t", "no-such-tag")
+	if strings.Contains(out, "buy cabbage") {
+		t.Errorf("unmatched tag filter should hide the item:\n%s", out)
+	}
+
+	out = mustExecute(t, "tag", "--list")
+	if !strings.Contains(out, "- cabbage (1)") || !strings.Contains(out, "- food (1)") {
+		t.Errorf("tag --list output:\n%s", out)
+	}
+
+	if _, err := execute(t, "tag", "only-hash"); err == nil {
+		t.Error("tag without tags should fail")
+	}
+}
+
 func TestClearAllWithYes(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 

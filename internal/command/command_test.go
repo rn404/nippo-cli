@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rn404/nippo-cli/internal/index"
 	"github.com/rn404/nippo-cli/internal/logfile"
 	"github.com/rn404/nippo-cli/internal/model"
 )
@@ -114,6 +115,100 @@ func TestAddWithStart(t *testing.T) {
 
 	if err := Add(dir, "a memo", AddOptions{Memo: true, Start: true}); err == nil {
 		t.Errorf("memo with start should fail")
+	}
+}
+
+func TestTagFlow(t *testing.T) {
+	dir := t.TempDir()
+	if err := Add(dir, "buy cabbage", AddOptions{Tags: []string{"cabbage", "shopping"}}); err != nil {
+		t.Fatal(err)
+	}
+	item := todayItems(t, dir)[0]
+	if len(item.Tags) != 2 {
+		t.Fatalf("tags = %+v, want 2", item.Tags)
+	}
+	if _, err := os.Stat(index.Path(dir)); err != nil {
+		t.Errorf("add with tags should write the index: %v", err)
+	}
+
+	var out strings.Builder
+	if err := Tag(&out, dir, item.Hash, []string{"food"}, false); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Tags updated!!") || !strings.Contains(out.String(), "#food") {
+		t.Errorf("Tag output = %q", out.String())
+	}
+
+	out.Reset()
+	if err := Tag(&out, dir, item.Hash, []string{"shopping"}, true); err != nil {
+		t.Fatal(err)
+	}
+	if item := todayItems(t, dir)[0]; item.HasTag("shopping") || !item.HasTag("food") {
+		t.Errorf("shopping should be removed, food kept: %+v", item.Tags)
+	}
+
+	if err := Tag(&out, dir, "no-such-hash", []string{"x"}, false); err == nil {
+		t.Errorf("tagging unknown hash should fail")
+	}
+}
+
+func TestTagList(t *testing.T) {
+	dir := t.TempDir()
+
+	var out strings.Builder
+	if err := TagList(&out, dir); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "There is no tags...") {
+		t.Errorf("empty TagList output = %q", out.String())
+	}
+
+	if err := Add(dir, "buy cabbage", AddOptions{Tags: []string{"cabbage"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := Add(dir, "more cabbage", AddOptions{Tags: []string{"cabbage"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	out.Reset()
+	if err := TagList(&out, dir); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "- cabbage (2)") {
+		t.Errorf("TagList output = %q", out.String())
+	}
+}
+
+func TestListWithTagFilter(t *testing.T) {
+	dir := t.TempDir()
+	for content, tags := range map[string][]string{
+		"tagged both":  {"go", "cli"},
+		"tagged one":   {"go"},
+		"tagged other": {"web"},
+	} {
+		if err := Add(dir, content, AddOptions{Tags: tags}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	var out strings.Builder
+	if err := List(&out, strings.NewReader(""), dir, ListOptions{Tags: []string{"go", "cli"}}); err != nil {
+		t.Fatal(err)
+	}
+	if got := out.String(); !strings.Contains(got, "tagged both") || strings.Contains(got, "tagged one") {
+		t.Errorf("AND filter output = %q", got)
+	}
+
+	out.Reset()
+	if err := List(&out, strings.NewReader(""), dir, ListOptions{Tags: []string{"go", "cli"}, Or: true}); err != nil {
+		t.Fatal(err)
+	}
+	if got := out.String(); !strings.Contains(got, "tagged one") || strings.Contains(got, "tagged other") {
+		t.Errorf("OR filter output = %q", got)
+	}
+
+	if err := List(&out, strings.NewReader(""), dir, ListOptions{All: true, Tags: []string{"go"}}); err == nil {
+		t.Errorf("tag filter with --all should fail")
 	}
 }
 

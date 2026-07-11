@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"github.com/rn404/nippo-cli/internal/command"
@@ -19,7 +21,32 @@ func newAddCommand() *cobra.Command {
 	}
 	cmd.Flags().BoolVarP(&opts.Memo, "memo", "m", false, "Add contents like memo item.")
 	cmd.Flags().BoolVarP(&opts.Start, "start", "s", false, "start the task right away")
+	cmd.Flags().StringSliceVarP(&opts.Tags, "tag", "t", nil, "put tags on the new item")
 	cmd.MarkFlagsMutuallyExclusive("memo", "start")
+	return cmd
+}
+
+func newTagCommand() *cobra.Command {
+	var remove, list bool
+	cmd := &cobra.Command{
+		Use:   "tag <hash> <tag>...",
+		Short: "manage tags of an item.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if list {
+				if len(args) != 0 {
+					return fmt.Errorf("--list takes no arguments")
+				}
+				return command.TagList(cmd.OutOrStdout(), logfile.Dir())
+			}
+			if len(args) < 2 {
+				return fmt.Errorf("requires <hash> and at least one <tag>")
+			}
+			return command.Tag(cmd.OutOrStdout(), logfile.Dir(), args[0], args[1:], remove)
+		},
+	}
+	cmd.Flags().BoolVarP(&remove, "delete", "d", false, "remove the tags instead of adding")
+	cmd.Flags().BoolVarP(&list, "list", "l", false, "list all known tags")
+	cmd.MarkFlagsMutuallyExclusive("delete", "list")
 	return cmd
 }
 
@@ -72,6 +99,8 @@ func newListCommand() *cobra.Command {
 	cmd.Flags().BoolVarP(&opts.All, "all", "a", false, "show all logs")
 	cmd.Flags().BoolVarP(&opts.Stat, "stat", "s", false, "show summary of list")
 	cmd.Flags().BoolVarP(&opts.Yes, "yes", "y", false, "skip confirmation prompts")
+	cmd.Flags().StringSliceVarP(&opts.Tags, "tag", "t", nil, "show only items carrying the tags")
+	cmd.Flags().BoolVar(&opts.Or, "or", false, "match any tag instead of all")
 	return cmd
 }
 

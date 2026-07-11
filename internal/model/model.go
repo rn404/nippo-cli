@@ -21,14 +21,15 @@ const idBytes = 4
 
 // Item is a single log entry. The presence of Closed distinguishes a
 // task (non-nil) from a memo (nil). StartedAt is set when work on a
-// task begins.
+// task begins. Tags hold free-form labels on any item kind.
 type Item struct {
-	Hash      string  `json:"hash"`
-	Content   string  `json:"content"`
-	CreatedAt string  `json:"createdAt"`
-	UpdatedAt string  `json:"updatedAt"`
-	StartedAt *string `json:"startedAt,omitempty"`
-	Closed    *bool   `json:"closed,omitempty"`
+	Hash      string   `json:"hash"`
+	Content   string   `json:"content"`
+	CreatedAt string   `json:"createdAt"`
+	UpdatedAt string   `json:"updatedAt"`
+	StartedAt *string  `json:"startedAt,omitempty"`
+	Closed    *bool    `json:"closed,omitempty"`
+	Tags      []string `json:"tags,omitempty"`
 }
 
 // NewTaskItem creates an open task with a fresh ID and timestamps.
@@ -70,6 +71,16 @@ func (i Item) IsClosed() bool {
 // IsStarted reports whether work on the task has begun.
 func (i Item) IsStarted() bool {
 	return i.StartedAt != nil
+}
+
+// HasTag reports whether the item carries the tag.
+func (i Item) HasTag(tag string) bool {
+	for _, t := range i.Tags {
+		if t == tag {
+			return true
+		}
+	}
+	return false
 }
 
 // Log is the body of one daily log file.

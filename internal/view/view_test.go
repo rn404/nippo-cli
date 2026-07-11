@@ -17,7 +17,7 @@ func TestItemList(t *testing.T) {
 		{Hash: "dddd4444", Content: "slice cabbage", CreatedAt: "2026-07-05T08:43:05.050Z", StartedAt: &startedAt, Closed: &open},
 	}
 	memos := []model.Item{
-		{Hash: "cccc3333", Content: "shrimp looks happy today", CreatedAt: "2026-07-05T08:43:05.073Z"},
+		{Hash: "cccc3333", Content: "shrimp looks happy today", CreatedAt: "2026-07-05T08:43:05.073Z", Tags: []string{"shrimp", "pet"}},
 	}
 
 	var buf strings.Builder
@@ -32,7 +32,7 @@ func TestItemList(t *testing.T) {
 		"- [>] slice cabbage (",
 		"Memo ->",
 		"- shrimp looks happy today (",
-		") cccc3333",
+		") cccc3333 #shrimp #pet",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output should contain %q:\n%s", want, out)
@@ -81,5 +81,20 @@ func TestStartedTask(t *testing.T) {
 	out := buf.String()
 	if !strings.Contains(out, "Started!!") || !strings.Contains(out, "> buy cabbage (") {
 		t.Errorf("StartedTask output = %q", out)
+	}
+}
+
+func TestTagsUpdated(t *testing.T) {
+	var buf strings.Builder
+	TagsUpdated(&buf, model.Item{Content: "buy cabbage", CreatedAt: "2026-07-05T08:43:04.971Z", Tags: []string{"cabbage"}})
+	out := buf.String()
+	if !strings.Contains(out, "Tags updated!!") || !strings.Contains(out, "#cabbage") {
+		t.Errorf("TagsUpdated output = %q", out)
+	}
+
+	buf.Reset()
+	TagsUpdated(&buf, model.Item{Content: "buy cabbage", CreatedAt: "2026-07-05T08:43:04.971Z"})
+	if strings.Contains(buf.String(), "#") {
+		t.Errorf("item without tags should print no tag marks: %q", buf.String())
 	}
 }

@@ -55,8 +55,18 @@ sava end <hash>
 # Delete item
 sava del <hash>
 
+# Add item with tags / manage tags afterwards
+sava add -t <tag>[,<tag>...] <message>
+sava tag <hash> <tag>...
+sava tag -d <hash> <tag>...
+sava tag --list
+
 # List today's log items
 sava list
+
+# Filter by tags (multiple tags match all; --or matches any)
+sava list -t <tag>[,<tag>...]
+sava list -t <tag>,<tag> --or
 
 # List items of a specific day / all log files / summaries
 sava list <yyyy-MM-dd>
@@ -73,11 +83,14 @@ sava clear -a
 
 ログは `~/.log/sava/<yyyy-MM-dd>.json` に 1 日 1 ファイルで保存されます.
 
+タグ操作時には `~/.log/sava/index.json` (タグ・hash から日付ファイルへの逆引きキャッシュ)
+が再生成されます. 壊れても全ログから再構築できるキャッシュです.
+
 ### Objects
 * LogFile > Log > Item (Task, Memo)
 
 ### Architecture
-* cmd/sava -- internal/command -- internal/{logfile, log, view} -- internal/model
+* cmd/sava -- internal/command -- internal/{logfile, log, view, index} -- internal/model
 
 ## Development
 

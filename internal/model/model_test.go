@@ -42,6 +42,16 @@ func TestLegacyFileRoundTrip(t *testing.T) {
 	}
 }
 
+func TestHasTag(t *testing.T) {
+	item := Item{Tags: []string{"go", "cli"}}
+	if !item.HasTag("go") || item.HasTag("web") {
+		t.Errorf("HasTag mismatch: %+v", item.Tags)
+	}
+	if (Item{}).HasTag("go") {
+		t.Error("item without tags should not match")
+	}
+}
+
 func TestNewID(t *testing.T) {
 	pattern := regexp.MustCompile(`^[0-9a-f]{8}$`)
 	seen := map[string]bool{}

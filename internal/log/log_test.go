@@ -140,6 +140,81 @@ func TestStartErrors(t *testing.T) {
 	}
 }
 
+func TestAddAndRemoveTags(t *testing.T) {
+	l := newTestLog()
+
+	tagged, err := AddTags(&l, "memo-1", []string{"shrimp", " pet ", "shrimp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tagged.Tags) != 2 || !tagged.HasTag("shrimp") || !tagged.HasTag("pet") {
+		t.Errorf("tags should be trimmed and deduplicated: %+v", tagged.Tags)
+	}
+	if tagged.UpdatedAt == tagged.CreatedAt {
+		t.Errorf("updatedAt should be renewed on tagging")
+	}
+
+	// Adding an existing tag is a no-op for that tag.
+	tagged, err = AddTags(&l, "memo-1", []string{"shrimp", "happy"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tagged.Tags) != 3 {
+		t.Errorf("tags = %+v, want 3 entries", tagged.Tags)
+	}
+
+	removed, err := RemoveTags(&l, "memo-1", []string{"pet", "unknown"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(removed.Tags) != 2 || removed.HasTag("pet") {
+		t.Errorf("pet should be removed: %+v", removed.Tags)
+	}
+
+	removed, err = RemoveTags(&l, "memo-1", []string{"shrimp", "happy"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if removed.Tags != nil {
+		t.Errorf("emptied tags should marshal away entirely: %+v", removed.Tags)
+	}
+}
+
+func TestTagErrors(t *testing.T) {
+	l := newTestLog()
+
+	if _, err := AddTags(&l, "no-such-hash", []string{"tag"}); err == nil {
+		t.Errorf("tagging unknown hash should fail")
+	}
+	if _, err := AddTags(&l, "memo-1", []string{""}); !errors.Is(err, ErrEmptyTag) {
+		t.Errorf("err = %v, want ErrEmptyTag", err)
+	}
+	if _, err := AddTags(&l, "memo-1", []string{"has space"}); err == nil {
+		t.Errorf("tag with whitespace should fail")
+	}
+	if _, err := RemoveTags(&l, "no-such-hash", []string{"tag"}); err == nil {
+		t.Errorf("untagging unknown hash should fail")
+	}
+}
+
+func TestFilterByTags(t *testing.T) {
+	items := []model.Item{
+		{Hash: "a", Tags: []string{"go", "cli"}},
+		{Hash: "b", Tags: []string{"go"}},
+		{Hash: "c"},
+	}
+
+	and := FilterByTags(items, []string{"go", "cli"}, false)
+	if len(and) != 1 || and[0].Hash != "a" {
+		t.Errorf("AND filter = %+v, want only a", and)
+	}
+
+	or := FilterByTags(items, []string{"go", "cli"}, true)
+	if len(or) != 2 {
+		t.Errorf("OR filter = %+v, want a and b", or)
+	}
+}
+
 func TestSplit(t *testing.T) {
 	tasks, memos := Split(newTestLog())
 
