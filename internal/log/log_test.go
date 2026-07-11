@@ -23,10 +23,11 @@ func newTestLog() model.Log {
 
 func TestAdd(t *testing.T) {
 	l := newTestLog()
-	if err := Add(&l, "new task", true); err != nil {
+	task, err := Add(&l, "new task", true)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := Add(&l, "new memo", false); err != nil {
+	if _, err := Add(&l, "new memo", false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -36,6 +37,9 @@ func TestAdd(t *testing.T) {
 	if !l.Items[3].IsTask() {
 		t.Errorf("appended item should be a task: %+v", l.Items[3])
 	}
+	if l.Items[3].Hash != task.Hash {
+		t.Errorf("Add should return the appended item: %+v", task)
+	}
 	if l.Items[4].IsTask() {
 		t.Errorf("appended item should be a memo: %+v", l.Items[4])
 	}
@@ -44,7 +48,7 @@ func TestAdd(t *testing.T) {
 func TestAddToFreezedLog(t *testing.T) {
 	l := newTestLog()
 	l.Freezed = true
-	if err := Add(&l, "content", true); !errors.Is(err, ErrFreezed) {
+	if _, err := Add(&l, "content", true); !errors.Is(err, ErrFreezed) {
 		t.Errorf("err = %v, want ErrFreezed", err)
 	}
 }
@@ -95,6 +99,44 @@ func TestFinishErrors(t *testing.T) {
 	}
 	if _, err := Finish(&l, "task-done"); !errors.Is(err, ErrAlreadyFinished) {
 		t.Errorf("err = %v, want ErrAlreadyFinished", err)
+	}
+}
+
+func TestStart(t *testing.T) {
+	l := newTestLog()
+	started, err := Start(&l, "task-open")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !started.IsStarted() {
+		t.Errorf("started item should have startedAt: %+v", started)
+	}
+	if started.UpdatedAt != *started.StartedAt {
+		t.Errorf("updatedAt should match startedAt on start: %+v", started)
+	}
+	if !l.Items[0].IsStarted() {
+		t.Errorf("log should hold the started item: %+v", l.Items[0])
+	}
+}
+
+func TestStartErrors(t *testing.T) {
+	l := newTestLog()
+
+	if _, err := Start(&l, "no-such-hash"); err == nil {
+		t.Errorf("starting unknown hash should fail")
+	}
+	if _, err := Start(&l, "memo-1"); !errors.Is(err, ErrNotTask) {
+		t.Errorf("err = %v, want ErrNotTask", err)
+	}
+	if _, err := Start(&l, "task-done"); !errors.Is(err, ErrAlreadyFinished) {
+		t.Errorf("err = %v, want ErrAlreadyFinished", err)
+	}
+
+	if _, err := Start(&l, "task-open"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Start(&l, "task-open"); !errors.Is(err, ErrAlreadyStarted) {
+		t.Errorf("err = %v, want ErrAlreadyStarted", err)
 	}
 }
 

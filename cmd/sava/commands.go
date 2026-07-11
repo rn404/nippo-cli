@@ -8,17 +8,30 @@ import (
 )
 
 func newAddCommand() *cobra.Command {
-	var memo bool
+	opts := command.AddOptions{}
 	cmd := &cobra.Command{
 		Use:   "add <contents>",
 		Short: "Add contents to nippo log.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			return command.Add(logfile.Dir(), args[0], memo)
+			return command.Add(logfile.Dir(), args[0], opts)
 		},
 	}
-	cmd.Flags().BoolVarP(&memo, "memo", "m", false, "Add contents like memo item.")
+	cmd.Flags().BoolVarP(&opts.Memo, "memo", "m", false, "Add contents like memo item.")
+	cmd.Flags().BoolVarP(&opts.Start, "start", "s", false, "start the task right away")
+	cmd.MarkFlagsMutuallyExclusive("memo", "start")
 	return cmd
+}
+
+func newStartCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "start <hash>",
+		Short: "start to task.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return command.Start(cmd.OutOrStdout(), logfile.Dir(), args[0])
+		},
+	}
 }
 
 func newEndCommand() *cobra.Command {

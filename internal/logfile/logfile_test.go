@@ -62,7 +62,7 @@ func TestUpdateAndReload(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := log.Add(&file.Body, "buy cabbage", true); err != nil {
+	if _, err := log.Add(&file.Body, "buy cabbage", true); err != nil {
 		t.Fatal(err)
 	}
 	if err := Update(dir, file.Name, file.Body); err != nil {

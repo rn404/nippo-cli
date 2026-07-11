@@ -25,15 +25,48 @@ const (
 	fileStatsLimit = 10
 )
 
-// Add appends a task (or a memo when memo is true) to today's log.
-func Add(dir, content string, memo bool) error {
+// AddOptions controls the add command behavior.
+type AddOptions struct {
+	Memo  bool // add a memo instead of a task
+	Start bool // mark the task as started right away
+}
+
+// Add appends a task (or a memo) to today's log.
+func Add(dir, content string, opts AddOptions) error {
+	if opts.Memo && opts.Start {
+		return errors.New("a memo cannot be started")
+	}
+
 	file, err := logfile.Get(dir, "")
 	if err != nil {
 		return err
 	}
-	if err := log.Add(&file.Body, content, !memo); err != nil {
+	item, err := log.Add(&file.Body, content, !opts.Memo)
+	if err != nil {
 		return err
 	}
+	if opts.Start {
+		if _, err := log.Start(&file.Body, item.Hash); err != nil {
+			return err
+		}
+	}
+
+	return logfile.Update(dir, file.Name, file.Body)
+}
+
+// Start marks the task matching hash in today's log as started.
+func Start(w io.Writer, dir, hash string) error {
+	file, err := logfile.Get(dir, "")
+	if err != nil {
+		return err
+	}
+
+	started, err := log.Start(&file.Body, hash)
+	if err != nil {
+		return err
+	}
+
+	view.StartedTask(w, started)
 	return logfile.Update(dir, file.Name, file.Body)
 }
 

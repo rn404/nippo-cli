@@ -29,8 +29,11 @@ func ItemList(w io.Writer, tasks, memos []model.Item) {
 		fmt.Fprintln(w, "Task ->")
 		for _, item := range tasks {
 			checkbox := "[ ]"
-			if item.IsClosed() {
+			switch {
+			case item.IsClosed():
 				checkbox = "[x]"
+			case item.IsStarted():
+				checkbox = "[>]"
 			}
 			fmt.Fprintf(w, "%s %s %s (%s) %s\n", bullet, checkbox, item.Content, formatTime(item.CreatedAt), item.Hash)
 		}
@@ -51,6 +54,12 @@ func ItemList(w io.Writer, tasks, memos []model.Item) {
 // FinishedTask prints the closed task confirmation.
 func FinishedTask(w io.Writer, item model.Item) {
 	fmt.Fprintln(w, "Finished!!")
+	fmt.Fprintf(w, "> %s (%s)\n", item.Content, formatTime(item.CreatedAt))
+}
+
+// StartedTask prints the started task confirmation.
+func StartedTask(w io.Writer, item model.Item) {
+	fmt.Fprintln(w, "Started!!")
 	fmt.Fprintf(w, "> %s (%s)\n", item.Content, formatTime(item.CreatedAt))
 }
 

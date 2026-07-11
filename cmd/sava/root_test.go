@@ -58,6 +58,25 @@ func TestAddListFlow(t *testing.T) {
 	}
 }
 
+func TestStartFlow(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	mustExecute(t, "add", "-s", "slice cabbage")
+
+	out := mustExecute(t, "list")
+	if !strings.Contains(out, "[>] slice cabbage") {
+		t.Errorf("task added with -s should be shown as started:\n%s", out)
+	}
+
+	if _, err := execute(t, "add", "-m", "-s", "impossible"); err == nil {
+		t.Error("add -m -s should fail as mutually exclusive")
+	}
+
+	if _, err := execute(t, "start", "no-such-hash"); err == nil {
+		t.Error("start with an unknown hash should fail")
+	}
+}
+
 func TestClearAllWithYes(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 

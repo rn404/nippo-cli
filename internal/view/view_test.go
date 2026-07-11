@@ -10,9 +10,11 @@ import (
 func TestItemList(t *testing.T) {
 	closed := true
 	open := false
+	startedAt := "2026-07-05T09:00:00.000Z"
 	tasks := []model.Item{
 		{Hash: "aaaa1111", Content: "buy cabbage", CreatedAt: "2026-07-05T08:43:04.971Z", Closed: &closed},
 		{Hash: "bbbb2222", Content: "feed the shrimp", CreatedAt: "2026-07-05T08:43:05.026Z", Closed: &open},
+		{Hash: "dddd4444", Content: "slice cabbage", CreatedAt: "2026-07-05T08:43:05.050Z", StartedAt: &startedAt, Closed: &open},
 	}
 	memos := []model.Item{
 		{Hash: "cccc3333", Content: "shrimp looks happy today", CreatedAt: "2026-07-05T08:43:05.073Z"},
@@ -27,6 +29,7 @@ func TestItemList(t *testing.T) {
 		"- [x] buy cabbage (",
 		") aaaa1111",
 		"- [ ] feed the shrimp (",
+		"- [>] slice cabbage (",
 		"Memo ->",
 		"- shrimp looks happy today (",
 		") cccc3333",
@@ -69,5 +72,14 @@ func TestFinishedTask(t *testing.T) {
 	out := buf.String()
 	if !strings.Contains(out, "Finished!!") || !strings.Contains(out, "> buy cabbage (") {
 		t.Errorf("FinishedTask output = %q", out)
+	}
+}
+
+func TestStartedTask(t *testing.T) {
+	var buf strings.Builder
+	StartedTask(&buf, model.Item{Content: "buy cabbage", CreatedAt: "2026-07-05T08:43:04.971Z"})
+	out := buf.String()
+	if !strings.Contains(out, "Started!!") || !strings.Contains(out, "> buy cabbage (") {
+		t.Errorf("StartedTask output = %q", out)
 	}
 }

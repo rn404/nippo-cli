@@ -40,8 +40,14 @@ go install github.com/rn404/nippo-cli/cmd/sava@latest
 # Add todo item
 sava add <message>
 
+# Add todo item and start it right away
+sava add -s <message>
+
 # Add memo item
 sava add -m <message>
+
+# Start todo item
+sava start <hash>
 
 # Finish todo item
 sava end <hash>

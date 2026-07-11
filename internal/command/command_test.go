@@ -27,10 +27,10 @@ func todayItems(t *testing.T, dir string) []model.Item {
 func TestAddEndDelFlow(t *testing.T) {
 	dir := t.TempDir()
 
-	if err := Add(dir, "buy cabbage", false); err != nil {
+	if err := Add(dir, "buy cabbage", AddOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := Add(dir, "a memo", true); err != nil {
+	if err := Add(dir, "a memo", AddOptions{Memo: true}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -64,7 +64,7 @@ func TestAddEndDelFlow(t *testing.T) {
 
 func TestEndErrors(t *testing.T) {
 	dir := t.TempDir()
-	if err := Add(dir, "a memo", true); err != nil {
+	if err := Add(dir, "a memo", AddOptions{Memo: true}); err != nil {
 		t.Fatal(err)
 	}
 	memo := todayItems(t, dir)[0]
@@ -78,12 +78,51 @@ func TestEndErrors(t *testing.T) {
 	}
 }
 
-func TestListToday(t *testing.T) {
+func TestStartFlow(t *testing.T) {
 	dir := t.TempDir()
-	if err := Add(dir, "buy cabbage", false); err != nil {
+
+	if err := Add(dir, "slice cabbage", AddOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := Add(dir, "shrimp memo", true); err != nil {
+	task := todayItems(t, dir)[0]
+
+	var out strings.Builder
+	if err := Start(&out, dir, task.Hash); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Started!!") {
+		t.Errorf("Start output = %q", out.String())
+	}
+	if items := todayItems(t, dir); !items[0].IsStarted() {
+		t.Errorf("task should be started after Start: %+v", items[0])
+	}
+
+	if err := Start(&out, dir, task.Hash); err == nil {
+		t.Errorf("starting the same task twice should fail")
+	}
+}
+
+func TestAddWithStart(t *testing.T) {
+	dir := t.TempDir()
+
+	if err := Add(dir, "feed the shrimp", AddOptions{Start: true}); err != nil {
+		t.Fatal(err)
+	}
+	if items := todayItems(t, dir); !items[0].IsStarted() {
+		t.Errorf("task added with start should be started: %+v", items[0])
+	}
+
+	if err := Add(dir, "a memo", AddOptions{Memo: true, Start: true}); err == nil {
+		t.Errorf("memo with start should fail")
+	}
+}
+
+func TestListToday(t *testing.T) {
+	dir := t.TempDir()
+	if err := Add(dir, "buy cabbage", AddOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := Add(dir, "shrimp memo", AddOptions{Memo: true}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -117,7 +156,7 @@ func TestListEmptyAndInvalidDate(t *testing.T) {
 
 func TestListStatAndAll(t *testing.T) {
 	dir := t.TempDir()
-	if err := Add(dir, "buy cabbage", false); err != nil {
+	if err := Add(dir, "buy cabbage", AddOptions{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -179,7 +218,7 @@ func TestClearOld(t *testing.T) {
 	if _, err := logfile.Get(dir, "2000-01-01"); err != nil {
 		t.Fatal(err)
 	}
-	if err := Add(dir, "recent", false); err != nil {
+	if err := Add(dir, "recent", AddOptions{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -205,7 +244,7 @@ func TestClearOld(t *testing.T) {
 
 func TestClearAll(t *testing.T) {
 	dir := t.TempDir()
-	if err := Add(dir, "content", false); err != nil {
+	if err := Add(dir, "content", AddOptions{}); err != nil {
 		t.Fatal(err)
 	}
 

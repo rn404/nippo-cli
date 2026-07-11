@@ -16,20 +16,24 @@ var (
 	ErrNotTask = errors.New("target item is not a task")
 	// ErrAlreadyFinished is returned when finishing a closed task.
 	ErrAlreadyFinished = errors.New("target item is already finished")
+	// ErrAlreadyStarted is returned when starting a started task.
+	ErrAlreadyStarted = errors.New("target item is already started")
 )
 
-// Add appends a new task or memo to the log.
-func Add(l *model.Log, content string, isTask bool) error {
+// Add appends a new task or memo to the log and returns the created item.
+func Add(l *model.Log, content string, isTask bool) (model.Item, error) {
 	if l.Freezed {
-		return ErrFreezed
+		return model.Item{}, ErrFreezed
 	}
 
+	var item model.Item
 	if isTask {
-		l.Items = append(l.Items, model.NewTaskItem(content))
+		item = model.NewTaskItem(content)
 	} else {
-		l.Items = append(l.Items, model.NewMemoItem(content))
+		item = model.NewMemoItem(content)
 	}
-	return nil
+	l.Items = append(l.Items, item)
+	return item, nil
 }
 
 // Delete removes all items matching hash from the log.
@@ -59,6 +63,33 @@ func Finish(l *model.Log, hash string) (model.Item, error) {
 		closed := true
 		item.Closed = &closed
 		item.UpdatedAt = model.NowISO()
+		l.Items[i] = item
+		return item, nil
+	}
+
+	return model.Item{}, fmt.Errorf("target item %q is not found", hash)
+}
+
+// Start marks the task matching hash as started and returns the
+// updated item.
+func Start(l *model.Log, hash string) (model.Item, error) {
+	for i, item := range l.Items {
+		if item.Hash != hash {
+			continue
+		}
+		if !item.IsTask() {
+			return model.Item{}, ErrNotTask
+		}
+		if item.IsClosed() {
+			return model.Item{}, ErrAlreadyFinished
+		}
+		if item.IsStarted() {
+			return model.Item{}, ErrAlreadyStarted
+		}
+
+		now := model.NowISO()
+		item.StartedAt = &now
+		item.UpdatedAt = now
 		l.Items[i] = item
 		return item, nil
 	}
