@@ -102,6 +102,43 @@ func TestTagFlow(t *testing.T) {
 	}
 }
 
+func TestDiffFlow(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	mustExecute(t, "add", "first task")
+	mustExecute(t, "add", "second task")
+
+	list := mustExecute(t, "list")
+	var hashes []string
+	for _, line := range strings.Split(list, "\n") {
+		if strings.HasPrefix(line, "- [ ]") {
+			fields := strings.Fields(line)
+			hashes = append(hashes, fields[len(fields)-1])
+		}
+	}
+	if len(hashes) != 2 {
+		t.Fatalf("hashes = %+v, want 2:\n%s", hashes, list)
+	}
+
+	out := mustExecute(t, "diff", hashes[0]+"..."+hashes[1])
+	if !strings.Contains(out, "Diff...") || !strings.Contains(out, "Elapsed: ") {
+		t.Errorf("diff output:\n%s", out)
+	}
+
+	// Two-argument form works as well.
+	out = mustExecute(t, "diff", hashes[0], hashes[1])
+	if !strings.Contains(out, "Elapsed: ") {
+		t.Errorf("two-arg diff output:\n%s", out)
+	}
+
+	if _, err := execute(t, "diff", "lonely-hash"); err == nil {
+		t.Error("diff without a separator should fail")
+	}
+	if _, err := execute(t, "diff", hashes[0]+"...no-such-hash"); err == nil {
+		t.Error("diff with an unknown hash should fail")
+	}
+}
+
 func TestClearAllWithYes(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 

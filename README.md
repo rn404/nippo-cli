@@ -61,6 +61,10 @@ sava tag <hash> <tag>...
 sava tag -d <hash> <tag>...
 sava tag --list
 
+# Show elapsed time between two items (resolved across days)
+sava diff <hashA>...<hashB>
+sava diff <hashA> <hashB>
+
 # List today's log items
 sava list
 

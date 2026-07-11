@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -81,6 +82,36 @@ func newDelCommand() *cobra.Command {
 			return command.Del(logfile.Dir(), args[0])
 		},
 	}
+}
+
+func newDiffCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "diff <hashA>...<hashB>",
+		Short: "show elapsed time between two items.",
+		Args:  cobra.RangeArgs(1, 2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			hashA, hashB, err := splitDiffArgs(args)
+			if err != nil {
+				return err
+			}
+			return command.Diff(cmd.OutOrStdout(), logfile.Dir(), hashA, hashB)
+		},
+	}
+}
+
+// splitDiffArgs accepts either "<hashA>...<hashB>" (also "..") as one
+// argument or two separate hash arguments.
+func splitDiffArgs(args []string) (string, string, error) {
+	if len(args) == 2 {
+		return args[0], args[1], nil
+	}
+	for _, sep := range []string{"...", ".."} {
+		parts := strings.SplitN(args[0], sep, 2)
+		if len(parts) == 2 && parts[0] != "" && parts[1] != "" {
+			return parts[0], parts[1], nil
+		}
+	}
+	return "", "", fmt.Errorf("expected <hashA>...<hashB> or two hashes")
 }
 
 func newListCommand() *cobra.Command {

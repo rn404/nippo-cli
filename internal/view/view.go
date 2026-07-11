@@ -70,6 +70,16 @@ func TagsUpdated(w io.Writer, item model.Item) {
 	fmt.Fprintf(w, "> %s (%s)%s\n", item.Content, formatTime(item.CreatedAt), formatTags(item.Tags))
 }
 
+// Diff prints two items with full creation dates and the elapsed time
+// between them.
+func Diff(w io.Writer, a, b model.Item, elapsed time.Duration) {
+	fmt.Fprintln(w, "Diff...")
+	fmt.Fprintf(w, "> %s (%s) %s\n", a.Content, formatDateTime(a.CreatedAt), a.Hash)
+	fmt.Fprintf(w, "> %s (%s) %s\n", b.Content, formatDateTime(b.CreatedAt), b.Hash)
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "Elapsed: %s\n", formatDuration(elapsed))
+}
+
 // FileStat prints a one-line summary of a daily log file.
 func FileStat(w io.Writer, name string, freezed bool, tasks, memos []model.Item, unfinished int) {
 	freezedMark := " "
@@ -105,4 +115,48 @@ func formatTime(iso string) string {
 		return iso
 	}
 	return t.Local().Format("15:04")
+}
+
+// formatDateTime renders an ISO timestamp as local yyyy-MM-dd HH:mm.
+func formatDateTime(iso string) string {
+	t, err := time.Parse(time.RFC3339, iso)
+	if err != nil {
+		return iso
+	}
+	return t.Local().Format("2006-01-02 15:04")
+}
+
+// formatDuration renders a duration as its non-zero components, e.g.
+// "1d 2h 30m", "45m 10s" or "0s".
+func formatDuration(d time.Duration) string {
+	d = d.Round(time.Second)
+	if d < 0 {
+		d = -d
+	}
+
+	days := d / (24 * time.Hour)
+	d -= days * 24 * time.Hour
+	hours := d / time.Hour
+	d -= hours * time.Hour
+	minutes := d / time.Minute
+	seconds := (d - minutes*time.Minute) / time.Second
+
+	var parts []string
+	for _, part := range []struct {
+		value int64
+		unit  string
+	}{
+		{int64(days), "d"},
+		{int64(hours), "h"},
+		{int64(minutes), "m"},
+		{int64(seconds), "s"},
+	} {
+		if part.value > 0 {
+			parts = append(parts, fmt.Sprintf("%d%s", part.value, part.unit))
+		}
+	}
+	if len(parts) == 0 {
+		return "0s"
+	}
+	return strings.Join(parts, " ")
 }

@@ -124,6 +124,90 @@ func TagList(w io.Writer, dir string) error {
 	return nil
 }
 
+// Diff prints the elapsed time between the creation of two items,
+// resolving each hash across all daily logs via the index. The index
+// is rebuilt once when a hash is not found, so stale cache entries
+// heal themselves.
+func Diff(w io.Writer, dir, hashA, hashB string) error {
+	idx, err := index.Load(dir)
+	if err != nil {
+		return err
+	}
+
+	rebuilt := false
+	resolve := func(hash string) (model.Item, error) {
+		for {
+			if item, ok := lookup(dir, idx, hash); ok {
+				return item, nil
+			}
+			if rebuilt {
+				return model.Item{}, fmt.Errorf("target item %q is not found", hash)
+			}
+			idx, err = index.Rebuild(dir)
+			if err != nil {
+				return model.Item{}, err
+			}
+			rebuilt = true
+		}
+	}
+
+	itemA, err := resolve(hashA)
+	if err != nil {
+		return err
+	}
+	itemB, err := resolve(hashB)
+	if err != nil {
+		return err
+	}
+
+	elapsed, err := elapsedBetween(itemA, itemB)
+	if err != nil {
+		return err
+	}
+
+	view.Diff(w, itemA, itemB, elapsed)
+	return nil
+}
+
+// lookup finds the item behind hash using the index. A stale entry
+// (missing file or hash no longer in it) reports a miss.
+func lookup(dir string, idx index.Index, hash string) (model.Item, bool) {
+	date, ok := idx.Hashes[hash]
+	if !ok {
+		return model.Item{}, false
+	}
+
+	file, err := logfile.Stat(dir, date)
+	if err != nil {
+		return model.Item{}, false
+	}
+	for _, item := range file.Body.Items {
+		if item.Hash == hash {
+			return item, true
+		}
+	}
+	return model.Item{}, false
+}
+
+// elapsedBetween returns the absolute distance between the creation
+// times of two items.
+func elapsedBetween(a, b model.Item) (time.Duration, error) {
+	createdA, err := time.Parse(time.RFC3339, a.CreatedAt)
+	if err != nil {
+		return 0, fmt.Errorf("broken createdAt on item %q: %w", a.Hash, err)
+	}
+	createdB, err := time.Parse(time.RFC3339, b.CreatedAt)
+	if err != nil {
+		return 0, fmt.Errorf("broken createdAt on item %q: %w", b.Hash, err)
+	}
+
+	elapsed := createdB.Sub(createdA)
+	if elapsed < 0 {
+		elapsed = -elapsed
+	}
+	return elapsed, nil
+}
+
 // Start marks the task matching hash in today's log as started.
 func Start(w io.Writer, dir, hash string) error {
 	file, err := logfile.Get(dir, "")

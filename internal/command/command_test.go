@@ -212,6 +212,78 @@ func TestListWithTagFilter(t *testing.T) {
 	}
 }
 
+// writeDay stores items as the log of day, bypassing Add so tests can
+// control hashes and timestamps.
+func writeDay(t *testing.T, dir, day string, items []model.Item) {
+	t.Helper()
+	file, err := logfile.Get(dir, day)
+	if err != nil {
+		t.Fatal(err)
+	}
+	file.Body.Items = items
+	if err := logfile.Update(dir, day, file.Body); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDiffAcrossDays(t *testing.T) {
+	dir := t.TempDir()
+	writeDay(t, dir, "2026-07-05", []model.Item{
+		{Hash: "aaaa1111", Content: "buy cabbage", CreatedAt: "2026-07-05T10:00:00.000Z", UpdatedAt: "2026-07-05T10:00:00.000Z"},
+	})
+	writeDay(t, dir, "2026-07-06", []model.Item{
+		{Hash: "bbbb2222", Content: "feed the shrimp", CreatedAt: "2026-07-06T12:30:00.000Z", UpdatedAt: "2026-07-06T12:30:00.000Z"},
+	})
+
+	// No index file exists yet: Diff must rebuild it by itself.
+	var out strings.Builder
+	if err := Diff(&out, dir, "aaaa1111", "bbbb2222"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Elapsed: 1d 2h 30m") {
+		t.Errorf("Diff output = %q", out.String())
+	}
+	if _, err := os.Stat(index.Path(dir)); err != nil {
+		t.Errorf("Diff should persist the rebuilt index: %v", err)
+	}
+
+	// Reversed order measures the same distance.
+	out.Reset()
+	if err := Diff(&out, dir, "bbbb2222", "aaaa1111"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Elapsed: 1d 2h 30m") {
+		t.Errorf("reversed Diff output = %q", out.String())
+	}
+
+	if err := Diff(&out, dir, "aaaa1111", "no-such-hash"); err == nil {
+		t.Errorf("Diff with unknown hash should fail")
+	}
+}
+
+func TestDiffHealsStaleIndex(t *testing.T) {
+	dir := t.TempDir()
+	writeDay(t, dir, "2026-07-05", []model.Item{
+		{Hash: "aaaa1111", Content: "buy cabbage", CreatedAt: "2026-07-05T10:00:00.000Z", UpdatedAt: "2026-07-05T10:00:00.000Z"},
+	})
+	if _, err := index.Rebuild(dir); err != nil {
+		t.Fatal(err)
+	}
+
+	// The item appears after the index was built: a stale cache miss.
+	writeDay(t, dir, "2026-07-06", []model.Item{
+		{Hash: "bbbb2222", Content: "feed the shrimp", CreatedAt: "2026-07-06T10:00:00.000Z", UpdatedAt: "2026-07-06T10:00:00.000Z"},
+	})
+
+	var out strings.Builder
+	if err := Diff(&out, dir, "aaaa1111", "bbbb2222"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Elapsed: 1d") {
+		t.Errorf("Diff should heal the stale index: %q", out.String())
+	}
+}
+
 func TestListToday(t *testing.T) {
 	dir := t.TempDir()
 	if err := Add(dir, "buy cabbage", AddOptions{}); err != nil {
