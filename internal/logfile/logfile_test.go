@@ -171,21 +171,21 @@ func TestRemove(t *testing.T) {
 	}
 
 	if err := Remove(refs[0]); err != nil {
-		t.Fatalf("Remove should delete the actual file (Deno version bug): %v", err)
+		t.Fatalf("Remove should delete the actual file: %v", err)
 	}
 	if _, err := os.Stat(refs[0].Path); !errors.Is(err, os.ErrNotExist) {
 		t.Errorf("file should be gone, got %v", err)
 	}
 }
 
-func TestReadLegacySample(t *testing.T) {
-	dir := filepath.Join("..", "..", "testdata", "legacy-samples")
+func TestReadFormatSample(t *testing.T) {
+	dir := filepath.Join("..", "..", "testdata", "log-format")
 	file, err := Stat(dir, "2026-07-05")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if file == nil {
-		t.Fatal("legacy sample should be readable")
+		t.Fatal("format sample should be readable")
 	}
 	if len(file.Body.Items) != 3 {
 		t.Errorf("items = %d, want 3", len(file.Body.Items))

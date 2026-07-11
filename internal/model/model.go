@@ -1,6 +1,7 @@
 // Package model defines the log data structures persisted as JSON.
-// The JSON layout must stay compatible with files written by the
-// former Deno implementation (see testdata/legacy-samples/).
+// The JSON layout is the storage format spec (see testdata/log-format/).
+// New fields must be optional (omitempty) so files written by older
+// versions stay readable.
 package model
 
 import (

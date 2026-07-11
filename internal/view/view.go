@@ -1,6 +1,4 @@
-// Package view renders command output. The layout follows the former
-// Deno implementation; wording equivalence is functional, not
-// character-exact.
+// Package view renders command output.
 package view
 
 import (

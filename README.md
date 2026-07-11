@@ -86,6 +86,7 @@ sava clear -a
 ```
 
 ログは `~/.log/sava/<yyyy-MM-dd>.json` に 1 日 1 ファイルで保存されます.
+フォーマットの仕様サンプルは `testdata/log-format/` にあります.
 
 タグ操作時には `~/.log/sava/index.json` (タグ・hash から日付ファイルへの逆引きキャッシュ)
 が再生成されます. 壊れても全ログから再構築できるキャッシュです.

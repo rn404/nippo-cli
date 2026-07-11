@@ -405,7 +405,7 @@ func TestClearOld(t *testing.T) {
 		t.Errorf("only today's file should remain, got %+v", refs)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "2000-01-01.json")); !os.IsNotExist(err) {
-		t.Errorf("old file should actually be removed from disk (Deno version bug)")
+		t.Errorf("old file should actually be removed from disk")
 	}
 }
 

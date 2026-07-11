@@ -1,26 +1,34 @@
 {
-  "hash": "[object Object]",
+  "hash": "1c12ea34",
   "freezed": false,
   "items": [
     {
-      "hash": "[object Object]",
+      "hash": "3097180c",
       "content": "buy cabbage",
       "createdAt": "2026-07-05T08:43:04.971Z",
       "updatedAt": "2026-07-05T08:44:12.345Z",
-      "closed": true
+      "startedAt": "2026-07-05T08:43:30.000Z",
+      "closed": true,
+      "tags": [
+        "cabbage",
+        "shopping"
+      ]
     },
     {
-      "hash": "[object Object]",
+      "hash": "e2e59dfe",
       "content": "feed the shrimp",
       "createdAt": "2026-07-05T08:43:05.026Z",
       "updatedAt": "2026-07-05T08:43:05.026Z",
       "closed": false
     },
     {
-      "hash": "[object Object]",
+      "hash": "cccc3333",
       "content": "shrimp looks happy today",
       "createdAt": "2026-07-05T08:43:05.073Z",
-      "updatedAt": "2026-07-05T08:43:05.073Z"
+      "updatedAt": "2026-07-05T08:43:05.073Z",
+      "tags": [
+        "shrimp"
+      ]
     }
   ]
 }
