@@ -5,40 +5,55 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 )
 
-func TestLegacyFileRoundTrip(t *testing.T) {
-	path := filepath.Join("..", "..", "testdata", "legacy-samples", "2026-07-05.json")
+// TestFormatSampleRoundTrip pins the storage format: the sample under
+// testdata/log-format/ is the spec, and marshaling must reproduce it
+// byte for byte. Item 1 carries only the required fields, proving that
+// files written by older versions (before startedAt/tags) still load.
+func TestFormatSampleRoundTrip(t *testing.T) {
+	path := filepath.Join("..", "..", "testdata", "log-format", "2026-07-05.json")
 	original, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("read legacy sample: %v", err)
+		t.Fatalf("read format sample: %v", err)
 	}
 
 	var body Log
 	if err := json.Unmarshal(original, &body); err != nil {
-		t.Fatalf("unmarshal legacy sample: %v", err)
+		t.Fatalf("unmarshal format sample: %v", err)
 	}
 
 	if len(body.Items) != 3 {
 		t.Fatalf("items = %d, want 3", len(body.Items))
 	}
-	if !body.Items[0].IsTask() || !body.Items[0].IsClosed() {
-		t.Errorf("item 0 should be a closed task: %+v", body.Items[0])
+	if item := body.Items[0]; !item.IsTask() || !item.IsClosed() || !item.IsStarted() || len(item.Tags) != 2 {
+		t.Errorf("item 0 should be a closed, started task with 2 tags: %+v", item)
 	}
-	if !body.Items[1].IsTask() || body.Items[1].IsClosed() {
-		t.Errorf("item 1 should be an open task: %+v", body.Items[1])
+	if item := body.Items[1]; !item.IsTask() || item.IsClosed() || item.IsStarted() || item.Tags != nil {
+		t.Errorf("item 1 should be an open task without optional fields: %+v", item)
 	}
-	if body.Items[2].IsTask() {
-		t.Errorf("item 2 should be a memo: %+v", body.Items[2])
+	if item := body.Items[2]; item.IsTask() || !item.HasTag("shrimp") {
+		t.Errorf("item 2 should be a memo tagged shrimp: %+v", item)
 	}
 
 	remarshaled, err := json.MarshalIndent(body, "", "  ")
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
-	if string(remarshaled) != string(original) {
+	if string(remarshaled) != strings.TrimRight(string(original), "\n") {
 		t.Errorf("round trip mismatch:\n--- original ---\n%s\n--- remarshaled ---\n%s", original, remarshaled)
+	}
+}
+
+func TestHasTag(t *testing.T) {
+	item := Item{Tags: []string{"go", "cli"}}
+	if !item.HasTag("go") || item.HasTag("web") {
+		t.Errorf("HasTag mismatch: %+v", item.Tags)
+	}
+	if (Item{}).HasTag("go") {
+		t.Error("item without tags should not match")
 	}
 }
 

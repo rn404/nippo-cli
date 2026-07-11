@@ -58,6 +58,87 @@ func TestAddListFlow(t *testing.T) {
 	}
 }
 
+func TestStartFlow(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	mustExecute(t, "add", "-s", "slice cabbage")
+
+	out := mustExecute(t, "list")
+	if !strings.Contains(out, "[>] slice cabbage") {
+		t.Errorf("task added with -s should be shown as started:\n%s", out)
+	}
+
+	if _, err := execute(t, "add", "-m", "-s", "impossible"); err == nil {
+		t.Error("add -m -s should fail as mutually exclusive")
+	}
+
+	if _, err := execute(t, "start", "no-such-hash"); err == nil {
+		t.Error("start with an unknown hash should fail")
+	}
+}
+
+func TestTagFlow(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	mustExecute(t, "add", "-t", "cabbage,food", "buy cabbage")
+
+	out := mustExecute(t, "list", "-t", "cabbage")
+	if !strings.Contains(out, "buy cabbage") || !strings.Contains(out, "#cabbage #food") {
+		t.Errorf("tagged item should be listed with tags:\n%s", out)
+	}
+
+	out = mustExecute(t, "list", "-t", "no-such-tag")
+	if strings.Contains(out, "buy cabbage") {
+		t.Errorf("unmatched tag filter should hide the item:\n%s", out)
+	}
+
+	out = mustExecute(t, "tag", "--list")
+	if !strings.Contains(out, "- cabbage (1)") || !strings.Contains(out, "- food (1)") {
+		t.Errorf("tag --list output:\n%s", out)
+	}
+
+	if _, err := execute(t, "tag", "only-hash"); err == nil {
+		t.Error("tag without tags should fail")
+	}
+}
+
+func TestDiffFlow(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	mustExecute(t, "add", "first task")
+	mustExecute(t, "add", "second task")
+
+	list := mustExecute(t, "list")
+	var hashes []string
+	for _, line := range strings.Split(list, "\n") {
+		if strings.HasPrefix(line, "- [ ]") {
+			fields := strings.Fields(line)
+			hashes = append(hashes, fields[len(fields)-1])
+		}
+	}
+	if len(hashes) != 2 {
+		t.Fatalf("hashes = %+v, want 2:\n%s", hashes, list)
+	}
+
+	out := mustExecute(t, "diff", hashes[0]+"..."+hashes[1])
+	if !strings.Contains(out, "Diff...") || !strings.Contains(out, "Elapsed: ") {
+		t.Errorf("diff output:\n%s", out)
+	}
+
+	// Two-argument form works as well.
+	out = mustExecute(t, "diff", hashes[0], hashes[1])
+	if !strings.Contains(out, "Elapsed: ") {
+		t.Errorf("two-arg diff output:\n%s", out)
+	}
+
+	if _, err := execute(t, "diff", "lonely-hash"); err == nil {
+		t.Error("diff without a separator should fail")
+	}
+	if _, err := execute(t, "diff", hashes[0]+"...no-such-hash"); err == nil {
+		t.Error("diff with an unknown hash should fail")
+	}
+}
+
 func TestClearAllWithYes(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 

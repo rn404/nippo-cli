@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rn404/nippo-cli/internal/index"
 	"github.com/rn404/nippo-cli/internal/logfile"
 	"github.com/rn404/nippo-cli/internal/model"
 )
@@ -27,10 +28,10 @@ func todayItems(t *testing.T, dir string) []model.Item {
 func TestAddEndDelFlow(t *testing.T) {
 	dir := t.TempDir()
 
-	if err := Add(dir, "buy cabbage", false); err != nil {
+	if err := Add(dir, "buy cabbage", AddOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := Add(dir, "a memo", true); err != nil {
+	if err := Add(dir, "a memo", AddOptions{Memo: true}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -64,7 +65,7 @@ func TestAddEndDelFlow(t *testing.T) {
 
 func TestEndErrors(t *testing.T) {
 	dir := t.TempDir()
-	if err := Add(dir, "a memo", true); err != nil {
+	if err := Add(dir, "a memo", AddOptions{Memo: true}); err != nil {
 		t.Fatal(err)
 	}
 	memo := todayItems(t, dir)[0]
@@ -78,12 +79,217 @@ func TestEndErrors(t *testing.T) {
 	}
 }
 
-func TestListToday(t *testing.T) {
+func TestStartFlow(t *testing.T) {
 	dir := t.TempDir()
-	if err := Add(dir, "buy cabbage", false); err != nil {
+
+	if err := Add(dir, "slice cabbage", AddOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := Add(dir, "shrimp memo", true); err != nil {
+	task := todayItems(t, dir)[0]
+
+	var out strings.Builder
+	if err := Start(&out, dir, task.Hash); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Started!!") {
+		t.Errorf("Start output = %q", out.String())
+	}
+	if items := todayItems(t, dir); !items[0].IsStarted() {
+		t.Errorf("task should be started after Start: %+v", items[0])
+	}
+
+	if err := Start(&out, dir, task.Hash); err == nil {
+		t.Errorf("starting the same task twice should fail")
+	}
+}
+
+func TestAddWithStart(t *testing.T) {
+	dir := t.TempDir()
+
+	if err := Add(dir, "feed the shrimp", AddOptions{Start: true}); err != nil {
+		t.Fatal(err)
+	}
+	if items := todayItems(t, dir); !items[0].IsStarted() {
+		t.Errorf("task added with start should be started: %+v", items[0])
+	}
+
+	if err := Add(dir, "a memo", AddOptions{Memo: true, Start: true}); err == nil {
+		t.Errorf("memo with start should fail")
+	}
+}
+
+func TestTagFlow(t *testing.T) {
+	dir := t.TempDir()
+	if err := Add(dir, "buy cabbage", AddOptions{Tags: []string{"cabbage", "shopping"}}); err != nil {
+		t.Fatal(err)
+	}
+	item := todayItems(t, dir)[0]
+	if len(item.Tags) != 2 {
+		t.Fatalf("tags = %+v, want 2", item.Tags)
+	}
+	if _, err := os.Stat(index.Path(dir)); err != nil {
+		t.Errorf("add with tags should write the index: %v", err)
+	}
+
+	var out strings.Builder
+	if err := Tag(&out, dir, item.Hash, []string{"food"}, false); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Tags updated!!") || !strings.Contains(out.String(), "#food") {
+		t.Errorf("Tag output = %q", out.String())
+	}
+
+	out.Reset()
+	if err := Tag(&out, dir, item.Hash, []string{"shopping"}, true); err != nil {
+		t.Fatal(err)
+	}
+	if item := todayItems(t, dir)[0]; item.HasTag("shopping") || !item.HasTag("food") {
+		t.Errorf("shopping should be removed, food kept: %+v", item.Tags)
+	}
+
+	if err := Tag(&out, dir, "no-such-hash", []string{"x"}, false); err == nil {
+		t.Errorf("tagging unknown hash should fail")
+	}
+}
+
+func TestTagList(t *testing.T) {
+	dir := t.TempDir()
+
+	var out strings.Builder
+	if err := TagList(&out, dir); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "There is no tags...") {
+		t.Errorf("empty TagList output = %q", out.String())
+	}
+
+	if err := Add(dir, "buy cabbage", AddOptions{Tags: []string{"cabbage"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := Add(dir, "more cabbage", AddOptions{Tags: []string{"cabbage"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	out.Reset()
+	if err := TagList(&out, dir); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "- cabbage (2)") {
+		t.Errorf("TagList output = %q", out.String())
+	}
+}
+
+func TestListWithTagFilter(t *testing.T) {
+	dir := t.TempDir()
+	for content, tags := range map[string][]string{
+		"tagged both":  {"go", "cli"},
+		"tagged one":   {"go"},
+		"tagged other": {"web"},
+	} {
+		if err := Add(dir, content, AddOptions{Tags: tags}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	var out strings.Builder
+	if err := List(&out, strings.NewReader(""), dir, ListOptions{Tags: []string{"go", "cli"}}); err != nil {
+		t.Fatal(err)
+	}
+	if got := out.String(); !strings.Contains(got, "tagged both") || strings.Contains(got, "tagged one") {
+		t.Errorf("AND filter output = %q", got)
+	}
+
+	out.Reset()
+	if err := List(&out, strings.NewReader(""), dir, ListOptions{Tags: []string{"go", "cli"}, Or: true}); err != nil {
+		t.Fatal(err)
+	}
+	if got := out.String(); !strings.Contains(got, "tagged one") || strings.Contains(got, "tagged other") {
+		t.Errorf("OR filter output = %q", got)
+	}
+
+	if err := List(&out, strings.NewReader(""), dir, ListOptions{All: true, Tags: []string{"go"}}); err == nil {
+		t.Errorf("tag filter with --all should fail")
+	}
+}
+
+// writeDay stores items as the log of day, bypassing Add so tests can
+// control hashes and timestamps.
+func writeDay(t *testing.T, dir, day string, items []model.Item) {
+	t.Helper()
+	file, err := logfile.Get(dir, day)
+	if err != nil {
+		t.Fatal(err)
+	}
+	file.Body.Items = items
+	if err := logfile.Update(dir, day, file.Body); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDiffAcrossDays(t *testing.T) {
+	dir := t.TempDir()
+	writeDay(t, dir, "2026-07-05", []model.Item{
+		{Hash: "aaaa1111", Content: "buy cabbage", CreatedAt: "2026-07-05T10:00:00.000Z", UpdatedAt: "2026-07-05T10:00:00.000Z"},
+	})
+	writeDay(t, dir, "2026-07-06", []model.Item{
+		{Hash: "bbbb2222", Content: "feed the shrimp", CreatedAt: "2026-07-06T12:30:00.000Z", UpdatedAt: "2026-07-06T12:30:00.000Z"},
+	})
+
+	// No index file exists yet: Diff must rebuild it by itself.
+	var out strings.Builder
+	if err := Diff(&out, dir, "aaaa1111", "bbbb2222"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Elapsed: 1d 2h 30m") {
+		t.Errorf("Diff output = %q", out.String())
+	}
+	if _, err := os.Stat(index.Path(dir)); err != nil {
+		t.Errorf("Diff should persist the rebuilt index: %v", err)
+	}
+
+	// Reversed order measures the same distance.
+	out.Reset()
+	if err := Diff(&out, dir, "bbbb2222", "aaaa1111"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Elapsed: 1d 2h 30m") {
+		t.Errorf("reversed Diff output = %q", out.String())
+	}
+
+	if err := Diff(&out, dir, "aaaa1111", "no-such-hash"); err == nil {
+		t.Errorf("Diff with unknown hash should fail")
+	}
+}
+
+func TestDiffHealsStaleIndex(t *testing.T) {
+	dir := t.TempDir()
+	writeDay(t, dir, "2026-07-05", []model.Item{
+		{Hash: "aaaa1111", Content: "buy cabbage", CreatedAt: "2026-07-05T10:00:00.000Z", UpdatedAt: "2026-07-05T10:00:00.000Z"},
+	})
+	if _, err := index.Rebuild(dir); err != nil {
+		t.Fatal(err)
+	}
+
+	// The item appears after the index was built: a stale cache miss.
+	writeDay(t, dir, "2026-07-06", []model.Item{
+		{Hash: "bbbb2222", Content: "feed the shrimp", CreatedAt: "2026-07-06T10:00:00.000Z", UpdatedAt: "2026-07-06T10:00:00.000Z"},
+	})
+
+	var out strings.Builder
+	if err := Diff(&out, dir, "aaaa1111", "bbbb2222"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Elapsed: 1d") {
+		t.Errorf("Diff should heal the stale index: %q", out.String())
+	}
+}
+
+func TestListToday(t *testing.T) {
+	dir := t.TempDir()
+	if err := Add(dir, "buy cabbage", AddOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := Add(dir, "shrimp memo", AddOptions{Memo: true}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -117,7 +323,7 @@ func TestListEmptyAndInvalidDate(t *testing.T) {
 
 func TestListStatAndAll(t *testing.T) {
 	dir := t.TempDir()
-	if err := Add(dir, "buy cabbage", false); err != nil {
+	if err := Add(dir, "buy cabbage", AddOptions{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -179,7 +385,7 @@ func TestClearOld(t *testing.T) {
 	if _, err := logfile.Get(dir, "2000-01-01"); err != nil {
 		t.Fatal(err)
 	}
-	if err := Add(dir, "recent", false); err != nil {
+	if err := Add(dir, "recent", AddOptions{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -199,13 +405,13 @@ func TestClearOld(t *testing.T) {
 		t.Errorf("only today's file should remain, got %+v", refs)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "2000-01-01.json")); !os.IsNotExist(err) {
-		t.Errorf("old file should actually be removed from disk (Deno version bug)")
+		t.Errorf("old file should actually be removed from disk")
 	}
 }
 
 func TestClearAll(t *testing.T) {
 	dir := t.TempDir()
-	if err := Add(dir, "content", false); err != nil {
+	if err := Add(dir, "content", AddOptions{}); err != nil {
 		t.Fatal(err)
 	}
 

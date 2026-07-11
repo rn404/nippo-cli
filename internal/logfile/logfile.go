@@ -40,7 +40,7 @@ type Ref struct {
 }
 
 // Dir returns the log directory. It prefers the home directory and
-// falls back to the current working directory, like the Deno version.
+// falls back to the current working directory.
 func Dir() string {
 	root, err := os.UserHomeDir()
 	if err != nil || root == "" {

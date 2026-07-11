@@ -8,9 +8,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"time"
 
+	"github.com/rn404/nippo-cli/internal/index"
 	"github.com/rn404/nippo-cli/internal/log"
 	"github.com/rn404/nippo-cli/internal/logfile"
 	"github.com/rn404/nippo-cli/internal/model"
@@ -25,15 +27,200 @@ const (
 	fileStatsLimit = 10
 )
 
-// Add appends a task (or a memo when memo is true) to today's log.
-func Add(dir, content string, memo bool) error {
+// AddOptions controls the add command behavior.
+type AddOptions struct {
+	Memo  bool     // add a memo instead of a task
+	Start bool     // mark the task as started right away
+	Tags  []string // tags to put on the new item
+}
+
+// Add appends a task (or a memo) to today's log.
+func Add(dir, content string, opts AddOptions) error {
+	if opts.Memo && opts.Start {
+		return errors.New("a memo cannot be started")
+	}
+
 	file, err := logfile.Get(dir, "")
 	if err != nil {
 		return err
 	}
-	if err := log.Add(&file.Body, content, !memo); err != nil {
+	item, err := log.Add(&file.Body, content, !opts.Memo)
+	if err != nil {
 		return err
 	}
+	if opts.Start {
+		if _, err := log.Start(&file.Body, item.Hash); err != nil {
+			return err
+		}
+	}
+	if len(opts.Tags) > 0 {
+		if _, err := log.AddTags(&file.Body, item.Hash, opts.Tags); err != nil {
+			return err
+		}
+	}
+
+	if err := logfile.Update(dir, file.Name, file.Body); err != nil {
+		return err
+	}
+	if len(opts.Tags) > 0 {
+		if _, err := index.Rebuild(dir); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Tag adds tags to (or removes them from, when remove is true) the
+// item matching hash in today's log, then refreshes the index.
+func Tag(w io.Writer, dir, hash string, tags []string, remove bool) error {
+	file, err := logfile.Get(dir, "")
+	if err != nil {
+		return err
+	}
+
+	var item model.Item
+	if remove {
+		item, err = log.RemoveTags(&file.Body, hash, tags)
+	} else {
+		item, err = log.AddTags(&file.Body, hash, tags)
+	}
+	if err != nil {
+		return err
+	}
+
+	if err := logfile.Update(dir, file.Name, file.Body); err != nil {
+		return err
+	}
+	if _, err := index.Rebuild(dir); err != nil {
+		return err
+	}
+
+	view.TagsUpdated(w, item)
+	return nil
+}
+
+// TagList prints every known tag with its item count, refreshing the
+// index as a side effect.
+func TagList(w io.Writer, dir string) error {
+	idx, err := index.Rebuild(dir)
+	if err != nil {
+		return err
+	}
+
+	view.Header(w, "Known tags are...")
+	if len(idx.Tags) == 0 {
+		fmt.Fprintln(w, "There is no tags...")
+		return nil
+	}
+
+	names := make([]string, 0, len(idx.Tags))
+	for name := range idx.Tags {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		view.ListItem(w, fmt.Sprintf("%s (%d)", name, len(idx.Tags[name])))
+	}
+	return nil
+}
+
+// Diff prints the elapsed time between the creation of two items,
+// resolving each hash across all daily logs via the index. The index
+// is rebuilt once when a hash is not found, so stale cache entries
+// heal themselves.
+func Diff(w io.Writer, dir, hashA, hashB string) error {
+	idx, err := index.Load(dir)
+	if err != nil {
+		return err
+	}
+
+	rebuilt := false
+	resolve := func(hash string) (model.Item, error) {
+		for {
+			if item, ok := lookup(dir, idx, hash); ok {
+				return item, nil
+			}
+			if rebuilt {
+				return model.Item{}, fmt.Errorf("target item %q is not found", hash)
+			}
+			idx, err = index.Rebuild(dir)
+			if err != nil {
+				return model.Item{}, err
+			}
+			rebuilt = true
+		}
+	}
+
+	itemA, err := resolve(hashA)
+	if err != nil {
+		return err
+	}
+	itemB, err := resolve(hashB)
+	if err != nil {
+		return err
+	}
+
+	elapsed, err := elapsedBetween(itemA, itemB)
+	if err != nil {
+		return err
+	}
+
+	view.Diff(w, itemA, itemB, elapsed)
+	return nil
+}
+
+// lookup finds the item behind hash using the index. A stale entry
+// (missing file or hash no longer in it) reports a miss.
+func lookup(dir string, idx index.Index, hash string) (model.Item, bool) {
+	date, ok := idx.Hashes[hash]
+	if !ok {
+		return model.Item{}, false
+	}
+
+	file, err := logfile.Stat(dir, date)
+	if err != nil {
+		return model.Item{}, false
+	}
+	for _, item := range file.Body.Items {
+		if item.Hash == hash {
+			return item, true
+		}
+	}
+	return model.Item{}, false
+}
+
+// elapsedBetween returns the absolute distance between the creation
+// times of two items.
+func elapsedBetween(a, b model.Item) (time.Duration, error) {
+	createdA, err := time.Parse(time.RFC3339, a.CreatedAt)
+	if err != nil {
+		return 0, fmt.Errorf("broken createdAt on item %q: %w", a.Hash, err)
+	}
+	createdB, err := time.Parse(time.RFC3339, b.CreatedAt)
+	if err != nil {
+		return 0, fmt.Errorf("broken createdAt on item %q: %w", b.Hash, err)
+	}
+
+	elapsed := createdB.Sub(createdA)
+	if elapsed < 0 {
+		elapsed = -elapsed
+	}
+	return elapsed, nil
+}
+
+// Start marks the task matching hash in today's log as started.
+func Start(w io.Writer, dir, hash string) error {
+	file, err := logfile.Get(dir, "")
+	if err != nil {
+		return err
+	}
+
+	started, err := log.Start(&file.Body, hash)
+	if err != nil {
+		return err
+	}
+
+	view.StartedTask(w, started)
 	return logfile.Update(dir, file.Name, file.Body)
 }
 
@@ -69,13 +256,18 @@ type ListOptions struct {
 	Date string // yyyy-MM-dd; empty means today
 	All  bool
 	Stat bool
-	Yes  bool // skip confirmation prompts
+	Yes  bool     // skip confirmation prompts
+	Tags []string // show only items carrying the tags
+	Or   bool     // match any tag instead of all
 }
 
 // List shows the items of one day, or summaries across all log files.
 func List(w io.Writer, r io.Reader, dir string, opts ListOptions) error {
 	if !opts.All {
 		return listOneDay(w, dir, opts)
+	}
+	if len(opts.Tags) > 0 {
+		return errors.New("tag filter cannot be combined with --all")
 	}
 
 	refs, err := logfile.List(dir)
@@ -143,6 +335,10 @@ func listOneDay(w io.Writer, dir string, opts ListOptions) error {
 	}
 
 	tasks, memos := log.Split(file.Body)
+	if len(opts.Tags) > 0 {
+		tasks = log.FilterByTags(tasks, opts.Tags, opts.Or)
+		memos = log.FilterByTags(memos, opts.Tags, opts.Or)
+	}
 	view.ItemList(w, tasks, memos)
 	return nil
 }
@@ -182,7 +378,7 @@ func clearAll(w io.Writer, r io.Reader, dir string, yes bool) error {
 	}
 
 	fmt.Fprintln(w, "Deleted all files.")
-	return nil
+	return index.Remove(dir)
 }
 
 func clearOld(w io.Writer, dir string) error {

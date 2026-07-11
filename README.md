@@ -40,8 +40,14 @@ go install github.com/rn404/nippo-cli/cmd/sava@latest
 # Add todo item
 sava add <message>
 
+# Add todo item and start it right away
+sava add -s <message>
+
 # Add memo item
 sava add -m <message>
+
+# Start todo item
+sava start <hash>
 
 # Finish todo item
 sava end <hash>
@@ -49,8 +55,22 @@ sava end <hash>
 # Delete item
 sava del <hash>
 
+# Add item with tags / manage tags afterwards
+sava add -t <tag>[,<tag>...] <message>
+sava tag <hash> <tag>...
+sava tag -d <hash> <tag>...
+sava tag --list
+
+# Show elapsed time between two items (resolved across days)
+sava diff <hashA>...<hashB>
+sava diff <hashA> <hashB>
+
 # List today's log items
 sava list
+
+# Filter by tags (multiple tags match all; --or matches any)
+sava list -t <tag>[,<tag>...]
+sava list -t <tag>,<tag> --or
 
 # List items of a specific day / all log files / summaries
 sava list <yyyy-MM-dd>
@@ -66,12 +86,16 @@ sava clear -a
 ```
 
 ログは `~/.log/sava/<yyyy-MM-dd>.json` に 1 日 1 ファイルで保存されます.
+フォーマットの仕様サンプルは `testdata/log-format/` にあります.
+
+タグ操作時には `~/.log/sava/index.json` (タグ・hash から日付ファイルへの逆引きキャッシュ)
+が再生成されます. 壊れても全ログから再構築できるキャッシュです.
 
 ### Objects
 * LogFile > Log > Item (Task, Memo)
 
 ### Architecture
-* cmd/sava -- internal/command -- internal/{logfile, log, view} -- internal/model
+* cmd/sava -- internal/command -- internal/{logfile, log, view, index} -- internal/model
 
 ## Development
 
