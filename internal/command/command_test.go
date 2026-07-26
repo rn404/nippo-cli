@@ -32,7 +32,7 @@ func TestAddEndDelFlow(t *testing.T) {
 	if err := Todo(io.Discard, dir, "buy cabbage", TodoOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := Add(io.Discard, dir, "a memo", nil); err != nil {
+	if err := Add(io.Discard, dir, "a memo", AddOptions{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -133,7 +133,7 @@ func TestEndPartialFailureIsAtomic(t *testing.T) {
 
 func TestEndErrors(t *testing.T) {
 	dir := t.TempDir()
-	if err := Add(io.Discard, dir, "a memo", nil); err != nil {
+	if err := Add(io.Discard, dir, "a memo", AddOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	memo := todayItems(t, dir)[0]
@@ -186,7 +186,7 @@ func TestAddOutputsAddedConfirmation(t *testing.T) {
 	dir := t.TempDir()
 
 	var out strings.Builder
-	if err := Add(&out, dir, "buy cabbage", []string{"cabbage"}); err != nil {
+	if err := Add(&out, dir, "buy cabbage", AddOptions{Tags: []string{"cabbage"}}); err != nil {
 		t.Fatal(err)
 	}
 	item := todayItems(t, dir)[0]
@@ -211,7 +211,7 @@ func TestAddConfirmsEvenWhenIndexRebuildFails(t *testing.T) {
 	}
 
 	var out strings.Builder
-	if err := Add(&out, dir, "buy cabbage", []string{"cabbage"}); err == nil {
+	if err := Add(&out, dir, "buy cabbage", AddOptions{Tags: []string{"cabbage"}}); err == nil {
 		t.Fatal("Add should surface the index.Rebuild failure")
 	}
 	if !strings.Contains(out.String(), "Added!!") {
@@ -225,7 +225,7 @@ func TestAddConfirmsEvenWhenIndexRebuildFails(t *testing.T) {
 
 func TestTagFlow(t *testing.T) {
 	dir := t.TempDir()
-	if err := Add(io.Discard, dir, "buy cabbage", []string{"cabbage", "shopping"}); err != nil {
+	if err := Add(io.Discard, dir, "buy cabbage", AddOptions{Tags: []string{"cabbage", "shopping"}}); err != nil {
 		t.Fatal(err)
 	}
 	item := todayItems(t, dir)[0]
@@ -263,7 +263,7 @@ func TestTagFlow(t *testing.T) {
 // the tag change was already durably persisted.
 func TestTagConfirmsEvenWhenIndexRebuildFails(t *testing.T) {
 	dir := t.TempDir()
-	if err := Add(io.Discard, dir, "buy cabbage", []string{"cabbage"}); err != nil {
+	if err := Add(io.Discard, dir, "buy cabbage", AddOptions{Tags: []string{"cabbage"}}); err != nil {
 		t.Fatal(err)
 	}
 	item := todayItems(t, dir)[0]
@@ -297,10 +297,10 @@ func TestTagList(t *testing.T) {
 		t.Errorf("empty TagList output = %q", out.String())
 	}
 
-	if err := Add(io.Discard, dir, "buy cabbage", []string{"cabbage"}); err != nil {
+	if err := Add(io.Discard, dir, "buy cabbage", AddOptions{Tags: []string{"cabbage"}}); err != nil {
 		t.Fatal(err)
 	}
-	if err := Add(io.Discard, dir, "more cabbage", []string{"cabbage"}); err != nil {
+	if err := Add(io.Discard, dir, "more cabbage", AddOptions{Tags: []string{"cabbage"}}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -320,7 +320,7 @@ func TestListWithTagFilter(t *testing.T) {
 		"tagged one":   {"go"},
 		"tagged other": {"web"},
 	} {
-		if err := Add(io.Discard, dir, content, tags); err != nil {
+		if err := Add(io.Discard, dir, content, AddOptions{Tags: tags}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -423,7 +423,7 @@ func TestListToday(t *testing.T) {
 	if err := Todo(io.Discard, dir, "buy cabbage", TodoOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := Add(io.Discard, dir, "shrimp memo", nil); err != nil {
+	if err := Add(io.Discard, dir, "shrimp memo", AddOptions{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -519,7 +519,7 @@ func TestClearOld(t *testing.T) {
 	if _, err := logfile.Get(dir, "2000-01-01"); err != nil {
 		t.Fatal(err)
 	}
-	if err := Add(io.Discard, dir, "recent", nil); err != nil {
+	if err := Add(io.Discard, dir, "recent", AddOptions{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -545,7 +545,7 @@ func TestClearOld(t *testing.T) {
 
 func TestClearAll(t *testing.T) {
 	dir := t.TempDir()
-	if err := Add(io.Discard, dir, "content", nil); err != nil {
+	if err := Add(io.Discard, dir, "content", AddOptions{}); err != nil {
 		t.Fatal(err)
 	}
 

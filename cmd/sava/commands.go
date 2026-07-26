@@ -11,16 +11,16 @@ import (
 )
 
 func newAddCommand() *cobra.Command {
-	var tags []string
+	opts := command.AddOptions{}
 	cmd := &cobra.Command{
 		Use:   "add <contents>",
 		Short: "Add a memo to nippo log.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return command.Add(cmd.OutOrStdout(), logfile.Dir(), args[0], tags)
+			return command.Add(cmd.OutOrStdout(), logfile.Dir(), args[0], opts)
 		},
 	}
-	cmd.Flags().StringSliceVarP(&tags, "tag", "t", nil, "put tags on the new item")
+	cmd.Flags().StringSliceVarP(&opts.Tags, "tag", "t", nil, "put tags on the new item")
 	return cmd
 }
 

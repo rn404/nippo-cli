@@ -24,7 +24,11 @@ the diff under review, but it's the same pattern in a sibling function). Both ar
 covered by new regression tests (`TestAddConfirmsEvenWhenIndexRebuildFails`,
 `TestTagConfirmsEvenWhenIndexRebuildFails`).
 
-Findings 5, 7, 8, 9, 10 remain open (not in scope for this follow-up).
+Finding 10 was fixed in a third follow-up: `Add` now takes an `AddOptions{ Tags
+[]string }` struct, matching `Todo`'s `TodoOptions`, so `newAddCommand` and
+`newTodoCommand` in `cmd/sava/commands.go` bind flags the same way.
+
+Findings 5, 7, 8, 9 remain open (not in scope for this follow-up).
 
 ## Findings
 
@@ -102,7 +106,9 @@ While gathering candidates, two of the finder sub-agents independently encounter
 
 指摘4 は2回目の追加修正で解決済み: `Add`/`Todo` は `logfile.Update` が成功した直後、後続の `index.Rebuild` より前に `view.Added` を呼ぶようにした。これにより、たとえその後の index 再構築が失敗しても、実際にディスクへ永続化されたアイテムは必ず確認表示される。この修正の過程で、`Tag` にも全く同じ順序のバグがあることに気づき、あわせて修正した（今回レビューした diff では触っていなかった関数のため、独立した指摘番号は振っていないが、同じパターンのバグ）。どちらも新しい回帰テスト（`TestAddConfirmsEvenWhenIndexRebuildFails`、`TestTagConfirmsEvenWhenIndexRebuildFails`）でカバーしている。
 
-指摘5・7・8・9・10 は今回の対応範囲外のため未解決のまま残っている。
+指摘10 は3回目の追加修正で解決済み: `Add` も `Todo` の `TodoOptions` と同じ形の `AddOptions{ Tags []string }` を受け取るようにし、`cmd/sava/commands.go` の `newAddCommand` と `newTodoCommand` でフラグの束ね方を揃えた。
+
+指摘5・7・8・9 は今回の対応範囲外のため未解決のまま残っている。
 
 ## 指摘事項
 

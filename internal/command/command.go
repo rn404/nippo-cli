@@ -27,8 +27,13 @@ const (
 	fileStatsLimit = 10
 )
 
+// AddOptions controls the add command behavior.
+type AddOptions struct {
+	Tags []string // tags to put on the new item
+}
+
 // Add appends a memo to today's log.
-func Add(w io.Writer, dir, content string, tags []string) error {
+func Add(w io.Writer, dir, content string, opts AddOptions) error {
 	file, err := logfile.Get(dir, "")
 	if err != nil {
 		return err
@@ -37,8 +42,8 @@ func Add(w io.Writer, dir, content string, tags []string) error {
 	if err != nil {
 		return err
 	}
-	if len(tags) > 0 {
-		item, err = log.AddTags(&file.Body, item.Hash, tags)
+	if len(opts.Tags) > 0 {
+		item, err = log.AddTags(&file.Body, item.Hash, opts.Tags)
 		if err != nil {
 			return err
 		}
@@ -49,7 +54,7 @@ func Add(w io.Writer, dir, content string, tags []string) error {
 	}
 	view.Added(w, item)
 
-	if len(tags) > 0 {
+	if len(opts.Tags) > 0 {
 		if _, err := index.Rebuild(dir); err != nil {
 			return err
 		}
