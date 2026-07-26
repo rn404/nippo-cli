@@ -23,10 +23,16 @@
 
 1. **`add` はメモ専用にする**（`-m` フラグ廃止）。TODO は専用コマンド
    `sava todo` で追加する
-2. **TODO の操作は `sava todo` に集約する**。`start`（着手・再開）と
-   `end`（完了）は `todo` のサブコマンドにする。トップレベルの
-   `sava start` / `sava end`（実装済み）は廃止する。
-   `del` / `tag` はメモ・TODO 両方に効く操作なのでトップレベルのまま
+2. **`start` / `end` は独立したトップレベルコマンドのまま、TODO専用の
+   操作として残す**（`del` / `tag` と同じ立ち位置: メモ・TODO 両方に
+   効く `del`/`tag` に対し、`start`/`end` は TODO にしか効かない）。
+   `todo` のサブコマンドにはしない — `todo start <hash>` という形は
+   検討したが、`sava todo "start"` のように内容が文字通り "start" /
+   "end" である TODO を作成できなくなる（cobra は親コマンドの直下に
+   同名の子コマンドがあると、その文字列を子コマンドとして解釈して
+   しまうため）。**このため、自由文字列を受け取る `add` と `todo`
+   には今後もサブコマンドを一切持たせない**、という制約をガード
+   レールとして明記する
 3. **過去の日の未完了 TODO は直接操作しない。過去ログは不変。**
    翌日の作業開始時（＝当日のログにまだ何も書いていない状態で、
    最初に書き込みを行うコマンドを叩いた瞬間）に、自動で以下が起きる:
@@ -53,8 +59,8 @@ sava add -t <tag>,... <contents>  # タグ付きメモ
 sava todo <contents>              # TODO 追加
 sava todo -s <contents>           # TODO 追加 + 即着手
 sava todo -t <tag>,... <contents> # タグ付き TODO
-sava todo start <hash>            # 既存 TODO に着手/再開
-sava todo end <hash>...           # 完了（#10: 複数 hash 指定に対応）
+sava start <hash>                 # 既存 TODO に着手/再開
+sava end <hash>...                # 完了（#10: 複数 hash 指定に対応）
 
 sava del <hash>                   # 削除（当日分のみ。メモ/TODO共通）
 sava tag ...                      # 既存のまま（当日分のみ）
@@ -64,7 +70,20 @@ sava list <date> / -a / -s / -t   # 既存のまま
 sava diff ...                     # 既存のまま
 sava clear ...                    # 既存のまま
 
-# sava carry / sava start / sava end という独立コマンドは存在しない
+# sava carry という独立コマンドは存在しない（自動発火のため）
+```
+
+```mermaid
+
+graph TD;
+	%% item にライフサイクルはない
+	memo_start[sava add &lt;contents&gt;];
+	
+	%% todo にはライフサイクルがある
+	todo_create[sava todo &lt;contents&gt;]-->todo_start[sava start &lt;hash&gt;]
+	todo_create_and_start[sava todo -s &lt;contents&gt;]-->todo_end[sava end  &lt;hash&gt;]
+	todo_start-->todo_end
+	todo_end--reopen-->todo_restart[sava start &lt;hash&gt;]
 ```
 
 タイムライン表示のイメージ:
@@ -82,8 +101,8 @@ $ sava list
 ### トリガー: 「今日のログへの最初の書き込み」
 
 carry を独立コマンドにせず、**今日のログファイルがまだ存在しない
-状態で最初の書き込みコマンド**（`add` / `todo` / `todo start` /
-`todo end` / `del` / `tag`）が実行された瞬間に差し込む。
+状態で最初の書き込みコマンド**（`add` / `todo` / `start` /
+`end` / `del` / `tag`）が実行された瞬間に差し込む。
 
 実装上、これは `internal/logfile.Get(dir, "")` が「今日のファイルが
 見つからず新規作成する」分岐に入るタイミングそのものと一致する。
@@ -118,7 +137,7 @@ freeze 済みの場合）は carry を行わず、今日のログは普通の空
 * `content` と `tags` は引き継ぐ
 * `startedAt` と `closed` は引き継がない（複製は「今日はまだ未着手」の
   状態で始まる）。理由は2つ:
-  * 「着手」を `todo start` で改めて記録することで、その日に実際に
+  * 「着手」を `start` で改めて記録することで、その日に実際に
     手を付けた時刻が残る（#26: 作業時間の可視化と相性がよい）
   * `createdAt` / `updatedAt` も今日の時刻に更新する。過去の時刻の
     ままだとタイムライン表示（時系列順）で不自然な位置に出てしまう
@@ -195,8 +214,8 @@ Added!!
 ## 破壊的変更
 
 * `add` の意味が変わる（タスク → メモ）。`-m` は廃止
-* `sava start` / `sava end` という独立コマンドが廃止され、
-  `sava todo start` / `sava todo end` に変わる
+* `sava start` / `sava end` は独立コマンドのまま存続する（実装は
+  #10 の複数 hash 対応を含めて更新される）
 * `list` の既定出力フォーマットが変わる（セクション → タイムライン）
 * ストレージフォーマットは非破壊（`carriedFrom` は omitempty 追加のみ、
   `freezed` は既存フィールドの初活用で、旧バージョンが書いたファイルは
@@ -205,7 +224,7 @@ Added!!
 ## 実装フェーズ（案）
 
 * [x] Phase A: `add` メモ化 / `todo` コマンド新設（作成・`-s`・`-t`）/
-      `todo start`・`todo end`（複数 hash 対応、#10 を吸収）/
+      `start`・`end`（独立コマンドのまま、複数 hash 対応で #10 を吸収）/
       追加・削除時の結果出力（#25）
 * [ ] Phase B: `list` タイムライン化
 * [ ] Phase C: 自動 carry（トリガー・対象日探索・新 hash コピー・
@@ -217,9 +236,9 @@ Added!!
 * #8: 自動 carry（Phase C）に吸収。独立コマンドではなくなったので
       実装後は「carry コマンドが欲しい」ではなく「自動 carry の完成」
       としてクローズ判断
-* #9: `todo end` へのオプション（例: `-a` で当日の未完了 TODO を
+* #9: `end` へのオプション（例: `-a` で当日の未完了 TODO を
       まとめて完了）として Phase A 以降で検討。単独実装は不要
-* #10: `todo end <hash>...` として Phase A で直接解決
+* #10: `end <hash>...` として Phase A で直接解決
 * #12: 自動 carry + `carriedFrom` + freeze で大部分が解決する見込み。
        Phase C 完了後に再評価
 * #25: Phase A に同梱
