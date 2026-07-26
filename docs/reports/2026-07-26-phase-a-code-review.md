@@ -28,7 +28,23 @@ Finding 10 was fixed in a third follow-up: `Add` now takes an `AddOptions{ Tags
 []string }` struct, matching `Todo`'s `TodoOptions`, so `newAddCommand` and
 `newTodoCommand` in `cmd/sava/commands.go` bind flags the same way.
 
-Findings 5, 7, 8, 9 remain open (not in scope for this follow-up).
+Findings 5 and 7 were fixed together in a fourth follow-up, which also resolved
+finding 9 as a side effect. Two changes: (1) `log.Add` now retries hash
+generation until it doesn't collide with an existing item in the same log
+(`internal/log/log.go`'s new `uniqueID`/`hashExists`, with `generateID` as an
+injectable var so the retry path is deterministically testable — a real
+`crypto/rand` collision can't be forced from a test); (2) `log.Delete` was
+changed to match the other four mutators' shape, `func Delete(l *model.Log,
+hash string) (model.Item, error)`, removing only the first matching item and
+returning a not-found error itself. `command.Del` now calls `log.Delete`
+directly and its bespoke `findItem` helper — which finding 9 flagged as
+duplicating `lookup`'s scan loop — was deleted entirely, since nothing needs it
+anymore. Together these mean `Del`'s reported and actually-deleted item can
+never diverge again, even in the residual case of a pre-existing hash collision
+in old data, and the not-found check now lives at the same layer as every
+sibling mutator.
+
+Finding 8 remains open (not in scope for this follow-up).
 
 ## Findings
 
@@ -108,7 +124,9 @@ While gathering candidates, two of the finder sub-agents independently encounter
 
 指摘10 は3回目の追加修正で解決済み: `Add` も `Todo` の `TodoOptions` と同じ形の `AddOptions{ Tags []string }` を受け取るようにし、`cmd/sava/commands.go` の `newAddCommand` と `newTodoCommand` でフラグの束ね方を揃えた。
 
-指摘5・7・8・9 は今回の対応範囲外のため未解決のまま残っている。
+指摘5・7 は4回目の追加修正でまとめて解決し、副次的に指摘9も解決した。変更は2つ: (1) `log.Add` が、同じログ内の既存アイテムとhashが衝突しなくなるまで再生成するようにした（`internal/log/log.go` の新しい `uniqueID`/`hashExists`。実際の `crypto/rand` の衝突をテストから強制することはできないため、`generateID` を差し替え可能な変数にして再試行ロジックを決定的にテストできるようにした）。(2) `log.Delete` を他の4つの変更関数と同じ形（`func Delete(l *model.Log, hash string) (model.Item, error)`）に変更し、最初に一致したアイテムだけを削除して、自身で not-found エラーを返すようにした。`command.Del` は `log.Delete` を直接呼ぶようになり、指摘9で「`lookup` のスキャンループを重複している」と指摘されていた `findItem` ヘルパーはもう不要になったため完全に削除した。これにより、`Del` が報告する内容と実際に削除される内容が（過去データにhash衝突が残っていた場合の残存ケースを含めて）二度と乖離しなくなり、not-found チェックも他の兄弟関数と同じ層に置かれるようになった。
+
+指摘8 は今回の対応範囲外のため未解決のまま残っている。
 
 ## 指摘事項
 

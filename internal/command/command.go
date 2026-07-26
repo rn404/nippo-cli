@@ -310,28 +310,17 @@ func Del(w io.Writer, dir, hash string) error {
 		return err
 	}
 
-	item, ok := findItem(file.Body, hash)
-	if !ok {
-		return fmt.Errorf("target item %q is not found", hash)
+	item, err := log.Delete(&file.Body, hash)
+	if err != nil {
+		return err
 	}
 
-	log.Delete(&file.Body, hash)
 	if err := logfile.Update(dir, file.Name, file.Body); err != nil {
 		return err
 	}
 
 	view.Deleted(w, item)
 	return nil
-}
-
-// findItem returns the item matching hash in l, if any.
-func findItem(l model.Log, hash string) (model.Item, bool) {
-	for _, item := range l.Items {
-		if item.Hash == hash {
-			return item, true
-		}
-	}
-	return model.Item{}, false
 }
 
 // ListOptions controls the list command behavior.

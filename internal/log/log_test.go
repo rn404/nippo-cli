@@ -55,7 +55,13 @@ func TestAddToFreezedLog(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	l := newTestLog()
-	Delete(&l, "memo-1")
+	deleted, err := Delete(&l, "memo-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if deleted.Hash != "memo-1" {
+		t.Errorf("Delete should return the removed item: %+v", deleted)
+	}
 	if len(l.Items) != 2 {
 		t.Fatalf("items = %d, want 2", len(l.Items))
 	}
@@ -65,9 +71,69 @@ func TestDelete(t *testing.T) {
 		}
 	}
 
-	Delete(&l, "no-such-hash")
+	if _, err := Delete(&l, "no-such-hash"); err == nil {
+		t.Errorf("deleting an unknown hash should fail")
+	}
 	if len(l.Items) != 2 {
-		t.Errorf("delete with unknown hash should be a no-op")
+		t.Errorf("a failed delete should not change the log")
+	}
+}
+
+// TestDeleteRemovesOnlyFirstMatch guards against a hash collision (see
+// TestAddAvoidsHashCollision) making Delete remove more than the one
+// item it reports.
+func TestDeleteRemovesOnlyFirstMatch(t *testing.T) {
+	l := model.Log{Items: []model.Item{
+		{Hash: "dup", Content: "first"},
+		{Hash: "dup", Content: "second"},
+	}}
+
+	deleted, err := Delete(&l, "dup")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if deleted.Content != "first" {
+		t.Errorf("Delete should remove the first match: %+v", deleted)
+	}
+	if len(l.Items) != 1 || l.Items[0].Content != "second" {
+		t.Errorf("the second colliding item should be left alone: %+v", l.Items)
+	}
+}
+
+func TestHashExists(t *testing.T) {
+	if !hashExists([]model.Item{{Hash: "x"}}, "x") {
+		t.Error("hashExists should find a matching hash")
+	}
+	if hashExists([]model.Item{{Hash: "x"}}, "y") {
+		t.Error("hashExists should not match a different hash")
+	}
+	if hashExists(nil, "x") {
+		t.Error("hashExists on an empty slice should be false")
+	}
+}
+
+// TestUniqueIDRetriesOnCollision proves the retry loop itself, since a
+// real crypto/rand collision can't be forced from a test: generateID
+// is swapped out to return two colliding IDs before a fresh one.
+func TestUniqueIDRetriesOnCollision(t *testing.T) {
+	items := []model.Item{{Hash: "dup"}}
+
+	calls := []string{"dup", "dup", "fresh"}
+	next := 0
+	orig := generateID
+	generateID = func() string {
+		id := calls[next]
+		next++
+		return id
+	}
+	defer func() { generateID = orig }()
+
+	got := uniqueID(items)
+	if got != "fresh" {
+		t.Errorf("uniqueID = %q, want %q after retrying past collisions", got, "fresh")
+	}
+	if next != len(calls) {
+		t.Errorf("generateID call count = %d, want %d (retries then success)", next, len(calls))
 	}
 }
 
