@@ -42,19 +42,24 @@ func Add(w io.Writer, dir, content string, opts AddOptions) error {
 	if err != nil {
 		return err
 	}
-	if len(opts.Tags) > 0 {
-		item, err = log.AddTags(&file.Body, item.Hash, opts.Tags)
-		if err != nil {
-			return err
-		}
+	// AddTags is a no-op on empty tags, so this is safe to call
+	// unconditionally.
+	item, err = log.AddTags(&file.Body, item.Hash, opts.Tags)
+	if err != nil {
+		return err
 	}
+	return persistNewItem(w, dir, file, item)
+}
 
+// persistNewItem writes file, confirms item to w, and rebuilds the
+// tag index if item carries any tags. Shared by Add and Todo.
+func persistNewItem(w io.Writer, dir string, file *logfile.LogFile, item model.Item) error {
 	if err := logfile.Update(dir, file.Name, file.Body); err != nil {
 		return err
 	}
 	view.Added(w, item)
 
-	if len(opts.Tags) > 0 {
+	if len(item.Tags) > 0 {
 		if _, err := index.Rebuild(dir); err != nil {
 			return err
 		}
@@ -84,24 +89,13 @@ func Todo(w io.Writer, dir, content string, opts TodoOptions) error {
 			return err
 		}
 	}
-	if len(opts.Tags) > 0 {
-		item, err = log.AddTags(&file.Body, item.Hash, opts.Tags)
-		if err != nil {
-			return err
-		}
-	}
-
-	if err := logfile.Update(dir, file.Name, file.Body); err != nil {
+	// AddTags is a no-op on empty tags, so this is safe to call
+	// unconditionally.
+	item, err = log.AddTags(&file.Body, item.Hash, opts.Tags)
+	if err != nil {
 		return err
 	}
-	view.Added(w, item)
-
-	if len(opts.Tags) > 0 {
-		if _, err := index.Rebuild(dir); err != nil {
-			return err
-		}
-	}
-	return nil
+	return persistNewItem(w, dir, file, item)
 }
 
 // Tag adds tags to (or removes them from, when remove is true) the

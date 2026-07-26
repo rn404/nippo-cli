@@ -44,7 +44,19 @@ never diverge again, even in the residual case of a pre-existing hash collision
 in old data, and the not-found check now lives at the same layer as every
 sibling mutator.
 
-Finding 8 remains open (not in scope for this follow-up).
+Finding 8 was fixed in a fifth follow-up: `Add` and `Todo` now share a new
+`persistNewItem(w, dir, file, item)` helper that does the "persist → confirm →
+rebuild index if the item has tags" tail, so that sequence exists in one place
+instead of two. The "conditionally call `log.AddTags`" duplication was removed
+differently: `log.AddTags` was already a no-op on empty/nil tags (its inner
+loop over `tags` just doesn't run, so `changed` stays false and nothing is
+mutated), so the `len(tags) > 0` guard around it was unnecessary and both
+functions now call it unconditionally. `persistNewItem` decides whether to
+rebuild the index by checking `len(item.Tags) > 0` on the item it was handed,
+which stays correct regardless of whether tags came from this call or were
+already on the item.
+
+All 10 reported findings are now resolved.
 
 ## Findings
 
@@ -126,7 +138,9 @@ While gathering candidates, two of the finder sub-agents independently encounter
 
 指摘5・7 は4回目の追加修正でまとめて解決し、副次的に指摘9も解決した。変更は2つ: (1) `log.Add` が、同じログ内の既存アイテムとhashが衝突しなくなるまで再生成するようにした（`internal/log/log.go` の新しい `uniqueID`/`hashExists`。実際の `crypto/rand` の衝突をテストから強制することはできないため、`generateID` を差し替え可能な変数にして再試行ロジックを決定的にテストできるようにした）。(2) `log.Delete` を他の4つの変更関数と同じ形（`func Delete(l *model.Log, hash string) (model.Item, error)`）に変更し、最初に一致したアイテムだけを削除して、自身で not-found エラーを返すようにした。`command.Del` は `log.Delete` を直接呼ぶようになり、指摘9で「`lookup` のスキャンループを重複している」と指摘されていた `findItem` ヘルパーはもう不要になったため完全に削除した。これにより、`Del` が報告する内容と実際に削除される内容が（過去データにhash衝突が残っていた場合の残存ケースを含めて）二度と乖離しなくなり、not-found チェックも他の兄弟関数と同じ層に置かれるようになった。
 
-指摘8 は今回の対応範囲外のため未解決のまま残っている。
+指摘8 は5回目の追加修正で解決済み: `Add`/`Todo` が「永続化 → 確認表示 → タグがあればindex再構築」という末尾の流れを、新しい `persistNewItem(w, dir, file, item)` という共通ヘルパーとして1箇所にまとめた。「タグがある時だけ `log.AddTags` を呼ぶ」という重複は別の方法で解消した: `log.AddTags` はもともと空/nilのタグに対してはno-op（内部の `tags` に対するループが単に実行されないだけで、`changed` は false のまま、何も変更されない）だったため、周りの `len(tags) > 0` ガード自体が不要だったと分かり、両関数とも無条件に呼び出すようにした。`persistNewItem` は、渡された `item` の `len(item.Tags) > 0` を見てindex再構築の要否を判断するので、タグが今回の呼び出しで付いたものでも元々ついていたものでも正しく動く。
+
+今回報告した10件の指摘は、これで全て解決した。
 
 ## 指摘事項
 
