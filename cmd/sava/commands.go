@@ -24,6 +24,10 @@ func newAddCommand() *cobra.Command {
 	return cmd
 }
 
+// newTodoCommand and newAddCommand must never gain subcommands: cobra
+// resolves a matching child command name before falling back to
+// <contents>, so a subcommand named e.g. "start" would make it
+// impossible to create an item whose content is literally "start".
 func newTodoCommand() *cobra.Command {
 	opts := command.TodoOptions{}
 	cmd := &cobra.Command{
@@ -36,29 +40,27 @@ func newTodoCommand() *cobra.Command {
 	}
 	cmd.Flags().BoolVarP(&opts.Start, "start", "s", false, "start the task right away")
 	cmd.Flags().StringSliceVarP(&opts.Tags, "tag", "t", nil, "put tags on the new item")
-
-	cmd.AddCommand(newTodoStartCommand(), newTodoEndCommand())
 	return cmd
 }
 
-func newTodoStartCommand() *cobra.Command {
+func newStartCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "start <hash>",
 		Short: "start an existing TODO item.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return command.TodoStart(cmd.OutOrStdout(), logfile.Dir(), args[0])
+			return command.Start(cmd.OutOrStdout(), logfile.Dir(), args[0])
 		},
 	}
 }
 
-func newTodoEndCommand() *cobra.Command {
+func newEndCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "end <hash>...",
 		Short: "finish one or more TODO items.",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return command.TodoEnd(cmd.OutOrStdout(), logfile.Dir(), args)
+			return command.End(cmd.OutOrStdout(), logfile.Dir(), args)
 		},
 	}
 }

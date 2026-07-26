@@ -237,8 +237,8 @@ func elapsedBetween(a, b model.Item) (time.Duration, error) {
 	return elapsed, nil
 }
 
-// TodoStart marks the task matching hash in today's log as started.
-func TodoStart(w io.Writer, dir, hash string) error {
+// Start marks the task matching hash in today's log as started.
+func Start(w io.Writer, dir, hash string) error {
 	file, err := logfile.Get(dir, "")
 	if err != nil {
 		return err
@@ -249,20 +249,25 @@ func TodoStart(w io.Writer, dir, hash string) error {
 		return err
 	}
 
+	if err := logfile.Update(dir, file.Name, file.Body); err != nil {
+		return err
+	}
+
 	view.StartedTask(w, started)
-	return logfile.Update(dir, file.Name, file.Body)
+	return nil
 }
 
-// TodoEnd closes the tasks matching hashes in today's log. All hashes
-// must resolve to open tasks or none of them are persisted.
-func TodoEnd(w io.Writer, dir string, hashes []string) error {
+// End closes the tasks matching hashes in today's log. Duplicate
+// hashes are collapsed to one. All hashes must resolve to open tasks
+// or none of them are persisted.
+func End(w io.Writer, dir string, hashes []string) error {
 	file, err := logfile.Get(dir, "")
 	if err != nil {
 		return err
 	}
 
 	finished := make([]model.Item, 0, len(hashes))
-	for _, hash := range hashes {
+	for _, hash := range dedupe(hashes) {
 		item, err := log.Finish(&file.Body, hash)
 		if err != nil {
 			return err
@@ -270,10 +275,27 @@ func TodoEnd(w io.Writer, dir string, hashes []string) error {
 		finished = append(finished, item)
 	}
 
+	if err := logfile.Update(dir, file.Name, file.Body); err != nil {
+		return err
+	}
+
 	for _, item := range finished {
 		view.FinishedTask(w, item)
 	}
-	return logfile.Update(dir, file.Name, file.Body)
+	return nil
+}
+
+// dedupe returns hashes with repeats removed, keeping first occurrence order.
+func dedupe(hashes []string) []string {
+	seen := make(map[string]bool, len(hashes))
+	out := make([]string, 0, len(hashes))
+	for _, hash := range hashes {
+		if !seen[hash] {
+			seen[hash] = true
+			out = append(out, hash)
+		}
+	}
+	return out
 }
 
 // Del removes the item matching hash from today's log.

@@ -47,10 +47,10 @@ sava todo <message>
 sava todo -s <message>
 
 # Start an existing TODO item
-sava todo start <hash>
+sava start <hash>
 
 # Finish one or more TODO items
-sava todo end <hash>...
+sava end <hash>...
 
 # Delete item
 sava del <hash>

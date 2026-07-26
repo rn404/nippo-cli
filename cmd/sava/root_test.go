@@ -67,7 +67,7 @@ func TestAddOutputsHash(t *testing.T) {
 	}
 }
 
-func TestTodoStartFlow(t *testing.T) {
+func TestStartFlow(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
 	mustExecute(t, "todo", "-s", "slice cabbage")
@@ -77,12 +77,12 @@ func TestTodoStartFlow(t *testing.T) {
 		t.Errorf("todo added with -s should be shown as started:\n%s", out)
 	}
 
-	if _, err := execute(t, "todo", "start", "no-such-hash"); err == nil {
-		t.Error("todo start with an unknown hash should fail")
+	if _, err := execute(t, "start", "no-such-hash"); err == nil {
+		t.Error("start with an unknown hash should fail")
 	}
 }
 
-func TestTodoEndMultipleHashes(t *testing.T) {
+func TestEndMultipleHashes(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
 	mustExecute(t, "todo", "first task")
@@ -100,13 +100,27 @@ func TestTodoEndMultipleHashes(t *testing.T) {
 		t.Fatalf("hashes = %+v, want 2:\n%s", hashes, list)
 	}
 
-	out := mustExecute(t, "todo", "end", hashes[0], hashes[1])
+	out := mustExecute(t, "end", hashes[0], hashes[1])
 	if got := strings.Count(out, "Finished!!"); got != 2 {
 		t.Errorf("Finished!! count = %d, want 2:\n%s", got, out)
 	}
 
-	if _, err := execute(t, "todo", "end", "no-such-hash"); err == nil {
-		t.Error("todo end with an unknown hash should fail")
+	if _, err := execute(t, "end", "no-such-hash"); err == nil {
+		t.Error("end with an unknown hash should fail")
+	}
+}
+
+// TestTodoContentCanBeStartOrEnd guards against regressing to nesting
+// start/end as todo subcommands, which made it impossible to create a
+// TODO whose entire content is literally "start" or "end".
+func TestTodoContentCanBeStartOrEnd(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	for _, content := range []string{"start", "end"} {
+		out := mustExecute(t, "todo", content)
+		if !strings.Contains(out, "Added!!") {
+			t.Errorf("todo %q should create an item, not dispatch to a subcommand:\n%s", content, out)
+		}
 	}
 }
 
@@ -195,7 +209,7 @@ func TestInvalidDateFails(t *testing.T) {
 func TestUnknownHashFails(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	if _, err := execute(t, "todo", "end", "no-such-hash"); err == nil {
-		t.Error("todo end with an unknown hash should fail")
+	if _, err := execute(t, "end", "no-such-hash"); err == nil {
+		t.Error("end with an unknown hash should fail")
 	}
 }

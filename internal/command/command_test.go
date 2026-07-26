@@ -46,14 +46,14 @@ func TestAddEndDelFlow(t *testing.T) {
 	}
 
 	var out strings.Builder
-	if err := TodoEnd(&out, dir, []string{task.Hash}); err != nil {
+	if err := End(&out, dir, []string{task.Hash}); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), "Finished!!") {
-		t.Errorf("TodoEnd output = %q", out.String())
+		t.Errorf("End output = %q", out.String())
 	}
 	if items := todayItems(t, dir); !items[0].IsClosed() {
-		t.Errorf("task should be closed after TodoEnd: %+v", items[0])
+		t.Errorf("task should be closed after End: %+v", items[0])
 	}
 
 	out.Reset()
@@ -72,7 +72,7 @@ func TestAddEndDelFlow(t *testing.T) {
 	}
 }
 
-func TestTodoEndMultiple(t *testing.T) {
+func TestEndMultiple(t *testing.T) {
 	dir := t.TempDir()
 	if err := Todo(io.Discard, dir, "buy cabbage", TodoOptions{}); err != nil {
 		t.Fatal(err)
@@ -84,7 +84,7 @@ func TestTodoEndMultiple(t *testing.T) {
 	hashA, hashB := items[0].Hash, items[1].Hash
 
 	var out strings.Builder
-	if err := TodoEnd(&out, dir, []string{hashA, hashB}); err != nil {
+	if err := End(&out, dir, []string{hashA, hashB}); err != nil {
 		t.Fatal(err)
 	}
 	if got := strings.Count(out.String(), "Finished!!"); got != 2 {
@@ -96,7 +96,7 @@ func TestTodoEndMultiple(t *testing.T) {
 	}
 }
 
-func TestTodoEndPartialFailureIsAtomic(t *testing.T) {
+func TestEndDuplicateHash(t *testing.T) {
 	dir := t.TempDir()
 	if err := Todo(io.Discard, dir, "buy cabbage", TodoOptions{}); err != nil {
 		t.Fatal(err)
@@ -104,8 +104,27 @@ func TestTodoEndPartialFailureIsAtomic(t *testing.T) {
 	hash := todayItems(t, dir)[0].Hash
 
 	var out strings.Builder
-	if err := TodoEnd(&out, dir, []string{hash, "no-such-hash"}); err == nil {
-		t.Fatal("TodoEnd with one unknown hash should fail")
+	if err := End(&out, dir, []string{hash, hash}); err != nil {
+		t.Fatalf("End with a duplicate hash should not error: %v", err)
+	}
+	if got := strings.Count(out.String(), "Finished!!"); got != 1 {
+		t.Errorf("Finished!! count = %d, want 1 (duplicate collapsed):\n%s", got, out.String())
+	}
+	if items := todayItems(t, dir); !items[0].IsClosed() {
+		t.Errorf("task should be closed: %+v", items[0])
+	}
+}
+
+func TestEndPartialFailureIsAtomic(t *testing.T) {
+	dir := t.TempDir()
+	if err := Todo(io.Discard, dir, "buy cabbage", TodoOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	hash := todayItems(t, dir)[0].Hash
+
+	var out strings.Builder
+	if err := End(&out, dir, []string{hash, "no-such-hash"}); err == nil {
+		t.Fatal("End with one unknown hash should fail")
 	}
 	if items := todayItems(t, dir); items[0].IsClosed() {
 		t.Errorf("valid hash should not be persisted when the batch fails: %+v", items[0])
@@ -120,11 +139,11 @@ func TestEndErrors(t *testing.T) {
 	memo := todayItems(t, dir)[0]
 
 	var out strings.Builder
-	if err := TodoEnd(&out, dir, []string{"no-such-hash"}); err == nil {
-		t.Errorf("TodoEnd with unknown hash should fail")
+	if err := End(&out, dir, []string{"no-such-hash"}); err == nil {
+		t.Errorf("End with unknown hash should fail")
 	}
-	if err := TodoEnd(&out, dir, []string{memo.Hash}); err == nil {
-		t.Errorf("TodoEnd on memo should fail")
+	if err := End(&out, dir, []string{memo.Hash}); err == nil {
+		t.Errorf("End on memo should fail")
 	}
 }
 
@@ -137,17 +156,17 @@ func TestStartFlow(t *testing.T) {
 	task := todayItems(t, dir)[0]
 
 	var out strings.Builder
-	if err := TodoStart(&out, dir, task.Hash); err != nil {
+	if err := Start(&out, dir, task.Hash); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), "Started!!") {
-		t.Errorf("TodoStart output = %q", out.String())
+		t.Errorf("Start output = %q", out.String())
 	}
 	if items := todayItems(t, dir); !items[0].IsStarted() {
-		t.Errorf("task should be started after TodoStart: %+v", items[0])
+		t.Errorf("task should be started after Start: %+v", items[0])
 	}
 
-	if err := TodoStart(&out, dir, task.Hash); err == nil {
+	if err := Start(&out, dir, task.Hash); err == nil {
 		t.Errorf("starting the same task twice should fail")
 	}
 }
