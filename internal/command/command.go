@@ -47,13 +47,13 @@ func Add(w io.Writer, dir, content string, tags []string) error {
 	if err := logfile.Update(dir, file.Name, file.Body); err != nil {
 		return err
 	}
+	view.Added(w, item)
+
 	if len(tags) > 0 {
 		if _, err := index.Rebuild(dir); err != nil {
 			return err
 		}
 	}
-
-	view.Added(w, item)
 	return nil
 }
 
@@ -89,13 +89,13 @@ func Todo(w io.Writer, dir, content string, opts TodoOptions) error {
 	if err := logfile.Update(dir, file.Name, file.Body); err != nil {
 		return err
 	}
+	view.Added(w, item)
+
 	if len(opts.Tags) > 0 {
 		if _, err := index.Rebuild(dir); err != nil {
 			return err
 		}
 	}
-
-	view.Added(w, item)
 	return nil
 }
 
@@ -120,11 +120,11 @@ func Tag(w io.Writer, dir, hash string, tags []string, remove bool) error {
 	if err := logfile.Update(dir, file.Name, file.Body); err != nil {
 		return err
 	}
+	view.TagsUpdated(w, item)
+
 	if _, err := index.Rebuild(dir); err != nil {
 		return err
 	}
-
-	view.TagsUpdated(w, item)
 	return nil
 }
 

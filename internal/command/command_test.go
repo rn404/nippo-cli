@@ -195,6 +195,34 @@ func TestAddOutputsAddedConfirmation(t *testing.T) {
 	}
 }
 
+// TestAddConfirmsEvenWhenIndexRebuildFails guards against a bug where
+// a tagged Add/Todo would durably persist the item but skip the
+// Added!! confirmation if the follow-up index.Rebuild failed, making
+// a successful write look like it never happened.
+func TestAddConfirmsEvenWhenIndexRebuildFails(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	// A broken sibling log file makes index.Rebuild fail (it scans
+	// every daily log), independently of today's file.
+	if err := os.WriteFile(filepath.Join(dir, "2000-01-01.json"), []byte("not json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var out strings.Builder
+	if err := Add(&out, dir, "buy cabbage", []string{"cabbage"}); err == nil {
+		t.Fatal("Add should surface the index.Rebuild failure")
+	}
+	if !strings.Contains(out.String(), "Added!!") {
+		t.Errorf("Add should still confirm the durable write: %q", out.String())
+	}
+	items := todayItems(t, dir)
+	if len(items) != 1 || items[0].Content != "buy cabbage" {
+		t.Errorf("item should still be persisted despite the index failure: %+v", items)
+	}
+}
+
 func TestTagFlow(t *testing.T) {
 	dir := t.TempDir()
 	if err := Add(io.Discard, dir, "buy cabbage", []string{"cabbage", "shopping"}); err != nil {
@@ -226,6 +254,35 @@ func TestTagFlow(t *testing.T) {
 
 	if err := Tag(&out, dir, "no-such-hash", []string{"x"}, false); err == nil {
 		t.Errorf("tagging unknown hash should fail")
+	}
+}
+
+// TestTagConfirmsEvenWhenIndexRebuildFails mirrors
+// TestAddConfirmsEvenWhenIndexRebuildFails: Tag must not skip its
+// confirmation just because the follow-up index.Rebuild fails after
+// the tag change was already durably persisted.
+func TestTagConfirmsEvenWhenIndexRebuildFails(t *testing.T) {
+	dir := t.TempDir()
+	if err := Add(io.Discard, dir, "buy cabbage", []string{"cabbage"}); err != nil {
+		t.Fatal(err)
+	}
+	item := todayItems(t, dir)[0]
+
+	// A broken sibling log file makes index.Rebuild fail (it scans
+	// every daily log), independently of today's file.
+	if err := os.WriteFile(filepath.Join(dir, "2000-01-01.json"), []byte("not json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var out strings.Builder
+	if err := Tag(&out, dir, item.Hash, []string{"food"}, false); err == nil {
+		t.Fatal("Tag should surface the index.Rebuild failure")
+	}
+	if !strings.Contains(out.String(), "Tags updated!!") {
+		t.Errorf("Tag should still confirm the durable write: %q", out.String())
+	}
+	if updated := todayItems(t, dir)[0]; !updated.HasTag("food") {
+		t.Errorf("tag change should still be persisted despite the index failure: %+v", updated.Tags)
 	}
 }
 

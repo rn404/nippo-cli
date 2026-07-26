@@ -13,8 +13,18 @@ to independent top-level commands instead of `todo` subcommands (resolving #1 an
 as a side effect, the flag-name collision with `todo -s`/`--start`), and `Start`/`End`
 were reworked to confirm only after `logfile.Update` succeeds and to deduplicate
 hashes before processing. See `docs/memo-log-redesign.md` decision #2 for the
-updated design. Findings 4, 5, 7, 8, 9, 10 remain open (not in scope for this
-follow-up).
+updated design.
+
+Finding 4 was fixed in a second follow-up: `Add` and `Todo` now call `view.Added`
+right after `logfile.Update` succeeds, before the follow-up `index.Rebuild`, so a
+durably-persisted item is always confirmed even if the index rebuild fails
+afterward. While fixing this, the identical ordering bug was found and fixed in
+`Tag` too (not originally numbered as its own finding, since it wasn't touched by
+the diff under review, but it's the same pattern in a sibling function). Both are
+covered by new regression tests (`TestAddConfirmsEvenWhenIndexRebuildFails`,
+`TestTagConfirmsEvenWhenIndexRebuildFails`).
+
+Findings 5, 7, 8, 9, 10 remain open (not in scope for this follow-up).
 
 ## Findings
 
@@ -88,7 +98,11 @@ While gathering candidates, two of the finder sub-agents independently encounter
 
 ## ステータス更新（2026-07-26、同日中）
 
-指摘1・2・3・6 は、その後の修正で解決済み: `start`/`end` を `todo` のサブコマンドではなく独立したトップレベルコマンドに戻し（指摘1、および副次的に `todo -s`/`--start` とのフラグ名衝突も解消）、`Start`/`End` は `logfile.Update` が成功した後にのみ確認を表示し、処理前にhashの重複を排除するよう修正した。最新の設計は `docs/memo-log-redesign.md` の決定事項2を参照。指摘4・5・7・8・9・10 は今回の対応範囲外のため未解決のまま残っている。
+指摘1・2・3・6 は、その後の修正で解決済み: `start`/`end` を `todo` のサブコマンドではなく独立したトップレベルコマンドに戻し（指摘1、および副次的に `todo -s`/`--start` とのフラグ名衝突も解消）、`Start`/`End` は `logfile.Update` が成功した後にのみ確認を表示し、処理前にhashの重複を排除するよう修正した。最新の設計は `docs/memo-log-redesign.md` の決定事項2を参照。
+
+指摘4 は2回目の追加修正で解決済み: `Add`/`Todo` は `logfile.Update` が成功した直後、後続の `index.Rebuild` より前に `view.Added` を呼ぶようにした。これにより、たとえその後の index 再構築が失敗しても、実際にディスクへ永続化されたアイテムは必ず確認表示される。この修正の過程で、`Tag` にも全く同じ順序のバグがあることに気づき、あわせて修正した（今回レビューした diff では触っていなかった関数のため、独立した指摘番号は振っていないが、同じパターンのバグ）。どちらも新しい回帰テスト（`TestAddConfirmsEvenWhenIndexRebuildFails`、`TestTagConfirmsEvenWhenIndexRebuildFails`）でカバーしている。
+
+指摘5・7・8・9・10 は今回の対応範囲外のため未解決のまま残っている。
 
 ## 指摘事項
 
