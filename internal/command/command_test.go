@@ -3,6 +3,7 @@ package command
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,10 +29,10 @@ func todayItems(t *testing.T, dir string) []model.Item {
 func TestAddEndDelFlow(t *testing.T) {
 	dir := t.TempDir()
 
-	if err := Add(dir, "buy cabbage", AddOptions{}); err != nil {
+	if err := Todo(io.Discard, dir, "buy cabbage", TodoOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := Add(dir, "a memo", AddOptions{Memo: true}); err != nil {
+	if err := Add(io.Discard, dir, "a memo", nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -45,82 +46,139 @@ func TestAddEndDelFlow(t *testing.T) {
 	}
 
 	var out strings.Builder
-	if err := End(&out, dir, task.Hash); err != nil {
+	if err := TodoEnd(&out, dir, []string{task.Hash}); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), "Finished!!") {
-		t.Errorf("End output = %q", out.String())
+		t.Errorf("TodoEnd output = %q", out.String())
 	}
 	if items := todayItems(t, dir); !items[0].IsClosed() {
-		t.Errorf("task should be closed after End: %+v", items[0])
+		t.Errorf("task should be closed after TodoEnd: %+v", items[0])
 	}
 
-	if err := Del(dir, memo.Hash); err != nil {
+	out.Reset()
+	if err := Del(&out, dir, memo.Hash); err != nil {
 		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Deleted!!") {
+		t.Errorf("Del output = %q", out.String())
 	}
 	if items := todayItems(t, dir); len(items) != 1 {
 		t.Errorf("items after Del = %+v, want only the task", items)
+	}
+
+	if err := Del(&out, dir, "no-such-hash"); err == nil {
+		t.Errorf("deleting unknown hash should fail")
+	}
+}
+
+func TestTodoEndMultiple(t *testing.T) {
+	dir := t.TempDir()
+	if err := Todo(io.Discard, dir, "buy cabbage", TodoOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := Todo(io.Discard, dir, "feed the shrimp", TodoOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	items := todayItems(t, dir)
+	hashA, hashB := items[0].Hash, items[1].Hash
+
+	var out strings.Builder
+	if err := TodoEnd(&out, dir, []string{hashA, hashB}); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Count(out.String(), "Finished!!"); got != 2 {
+		t.Errorf("Finished!! count = %d, want 2:\n%s", got, out.String())
+	}
+	items = todayItems(t, dir)
+	if !items[0].IsClosed() || !items[1].IsClosed() {
+		t.Errorf("both tasks should be closed: %+v", items)
+	}
+}
+
+func TestTodoEndPartialFailureIsAtomic(t *testing.T) {
+	dir := t.TempDir()
+	if err := Todo(io.Discard, dir, "buy cabbage", TodoOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	hash := todayItems(t, dir)[0].Hash
+
+	var out strings.Builder
+	if err := TodoEnd(&out, dir, []string{hash, "no-such-hash"}); err == nil {
+		t.Fatal("TodoEnd with one unknown hash should fail")
+	}
+	if items := todayItems(t, dir); items[0].IsClosed() {
+		t.Errorf("valid hash should not be persisted when the batch fails: %+v", items[0])
 	}
 }
 
 func TestEndErrors(t *testing.T) {
 	dir := t.TempDir()
-	if err := Add(dir, "a memo", AddOptions{Memo: true}); err != nil {
+	if err := Add(io.Discard, dir, "a memo", nil); err != nil {
 		t.Fatal(err)
 	}
 	memo := todayItems(t, dir)[0]
 
 	var out strings.Builder
-	if err := End(&out, dir, "no-such-hash"); err == nil {
-		t.Errorf("End with unknown hash should fail")
+	if err := TodoEnd(&out, dir, []string{"no-such-hash"}); err == nil {
+		t.Errorf("TodoEnd with unknown hash should fail")
 	}
-	if err := End(&out, dir, memo.Hash); err == nil {
-		t.Errorf("End on memo should fail")
+	if err := TodoEnd(&out, dir, []string{memo.Hash}); err == nil {
+		t.Errorf("TodoEnd on memo should fail")
 	}
 }
 
 func TestStartFlow(t *testing.T) {
 	dir := t.TempDir()
 
-	if err := Add(dir, "slice cabbage", AddOptions{}); err != nil {
+	if err := Todo(io.Discard, dir, "slice cabbage", TodoOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	task := todayItems(t, dir)[0]
 
 	var out strings.Builder
-	if err := Start(&out, dir, task.Hash); err != nil {
+	if err := TodoStart(&out, dir, task.Hash); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), "Started!!") {
-		t.Errorf("Start output = %q", out.String())
+		t.Errorf("TodoStart output = %q", out.String())
 	}
 	if items := todayItems(t, dir); !items[0].IsStarted() {
-		t.Errorf("task should be started after Start: %+v", items[0])
+		t.Errorf("task should be started after TodoStart: %+v", items[0])
 	}
 
-	if err := Start(&out, dir, task.Hash); err == nil {
+	if err := TodoStart(&out, dir, task.Hash); err == nil {
 		t.Errorf("starting the same task twice should fail")
 	}
 }
 
-func TestAddWithStart(t *testing.T) {
+func TestTodoWithStart(t *testing.T) {
 	dir := t.TempDir()
 
-	if err := Add(dir, "feed the shrimp", AddOptions{Start: true}); err != nil {
+	if err := Todo(io.Discard, dir, "feed the shrimp", TodoOptions{Start: true}); err != nil {
 		t.Fatal(err)
 	}
 	if items := todayItems(t, dir); !items[0].IsStarted() {
-		t.Errorf("task added with start should be started: %+v", items[0])
+		t.Errorf("todo added with start should be started: %+v", items[0])
 	}
+}
 
-	if err := Add(dir, "a memo", AddOptions{Memo: true, Start: true}); err == nil {
-		t.Errorf("memo with start should fail")
+func TestAddOutputsAddedConfirmation(t *testing.T) {
+	dir := t.TempDir()
+
+	var out strings.Builder
+	if err := Add(&out, dir, "buy cabbage", []string{"cabbage"}); err != nil {
+		t.Fatal(err)
+	}
+	item := todayItems(t, dir)[0]
+	if !strings.Contains(out.String(), "Added!!") || !strings.Contains(out.String(), item.Hash) || !strings.Contains(out.String(), "#cabbage") {
+		t.Errorf("Add output = %q", out.String())
 	}
 }
 
 func TestTagFlow(t *testing.T) {
 	dir := t.TempDir()
-	if err := Add(dir, "buy cabbage", AddOptions{Tags: []string{"cabbage", "shopping"}}); err != nil {
+	if err := Add(io.Discard, dir, "buy cabbage", []string{"cabbage", "shopping"}); err != nil {
 		t.Fatal(err)
 	}
 	item := todayItems(t, dir)[0]
@@ -163,10 +221,10 @@ func TestTagList(t *testing.T) {
 		t.Errorf("empty TagList output = %q", out.String())
 	}
 
-	if err := Add(dir, "buy cabbage", AddOptions{Tags: []string{"cabbage"}}); err != nil {
+	if err := Add(io.Discard, dir, "buy cabbage", []string{"cabbage"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := Add(dir, "more cabbage", AddOptions{Tags: []string{"cabbage"}}); err != nil {
+	if err := Add(io.Discard, dir, "more cabbage", []string{"cabbage"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -186,7 +244,7 @@ func TestListWithTagFilter(t *testing.T) {
 		"tagged one":   {"go"},
 		"tagged other": {"web"},
 	} {
-		if err := Add(dir, content, AddOptions{Tags: tags}); err != nil {
+		if err := Add(io.Discard, dir, content, tags); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -286,10 +344,10 @@ func TestDiffHealsStaleIndex(t *testing.T) {
 
 func TestListToday(t *testing.T) {
 	dir := t.TempDir()
-	if err := Add(dir, "buy cabbage", AddOptions{}); err != nil {
+	if err := Todo(io.Discard, dir, "buy cabbage", TodoOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := Add(dir, "shrimp memo", AddOptions{Memo: true}); err != nil {
+	if err := Add(io.Discard, dir, "shrimp memo", nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -323,7 +381,7 @@ func TestListEmptyAndInvalidDate(t *testing.T) {
 
 func TestListStatAndAll(t *testing.T) {
 	dir := t.TempDir()
-	if err := Add(dir, "buy cabbage", AddOptions{}); err != nil {
+	if err := Todo(io.Discard, dir, "buy cabbage", TodoOptions{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -385,7 +443,7 @@ func TestClearOld(t *testing.T) {
 	if _, err := logfile.Get(dir, "2000-01-01"); err != nil {
 		t.Fatal(err)
 	}
-	if err := Add(dir, "recent", AddOptions{}); err != nil {
+	if err := Add(io.Discard, dir, "recent", nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -411,7 +469,7 @@ func TestClearOld(t *testing.T) {
 
 func TestClearAll(t *testing.T) {
 	dir := t.TempDir()
-	if err := Add(dir, "content", AddOptions{}); err != nil {
+	if err := Add(io.Discard, dir, "content", nil); err != nil {
 		t.Fatal(err)
 	}
 

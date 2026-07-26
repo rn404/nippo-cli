@@ -27,34 +27,61 @@ const (
 	fileStatsLimit = 10
 )
 
-// AddOptions controls the add command behavior.
-type AddOptions struct {
-	Memo  bool     // add a memo instead of a task
-	Start bool     // mark the task as started right away
-	Tags  []string // tags to put on the new item
-}
-
-// Add appends a task (or a memo) to today's log.
-func Add(dir, content string, opts AddOptions) error {
-	if opts.Memo && opts.Start {
-		return errors.New("a memo cannot be started")
-	}
-
+// Add appends a memo to today's log.
+func Add(w io.Writer, dir, content string, tags []string) error {
 	file, err := logfile.Get(dir, "")
 	if err != nil {
 		return err
 	}
-	item, err := log.Add(&file.Body, content, !opts.Memo)
+	item, err := log.Add(&file.Body, content, false)
+	if err != nil {
+		return err
+	}
+	if len(tags) > 0 {
+		item, err = log.AddTags(&file.Body, item.Hash, tags)
+		if err != nil {
+			return err
+		}
+	}
+
+	if err := logfile.Update(dir, file.Name, file.Body); err != nil {
+		return err
+	}
+	if len(tags) > 0 {
+		if _, err := index.Rebuild(dir); err != nil {
+			return err
+		}
+	}
+
+	view.Added(w, item)
+	return nil
+}
+
+// TodoOptions controls the todo command behavior.
+type TodoOptions struct {
+	Start bool     // mark the task as started right away
+	Tags  []string // tags to put on the new item
+}
+
+// Todo appends a TODO item (task) to today's log.
+func Todo(w io.Writer, dir, content string, opts TodoOptions) error {
+	file, err := logfile.Get(dir, "")
+	if err != nil {
+		return err
+	}
+	item, err := log.Add(&file.Body, content, true)
 	if err != nil {
 		return err
 	}
 	if opts.Start {
-		if _, err := log.Start(&file.Body, item.Hash); err != nil {
+		item, err = log.Start(&file.Body, item.Hash)
+		if err != nil {
 			return err
 		}
 	}
 	if len(opts.Tags) > 0 {
-		if _, err := log.AddTags(&file.Body, item.Hash, opts.Tags); err != nil {
+		item, err = log.AddTags(&file.Body, item.Hash, opts.Tags)
+		if err != nil {
 			return err
 		}
 	}
@@ -67,6 +94,8 @@ func Add(dir, content string, opts AddOptions) error {
 			return err
 		}
 	}
+
+	view.Added(w, item)
 	return nil
 }
 
@@ -208,8 +237,8 @@ func elapsedBetween(a, b model.Item) (time.Duration, error) {
 	return elapsed, nil
 }
 
-// Start marks the task matching hash in today's log as started.
-func Start(w io.Writer, dir, hash string) error {
+// TodoStart marks the task matching hash in today's log as started.
+func TodoStart(w io.Writer, dir, hash string) error {
 	file, err := logfile.Get(dir, "")
 	if err != nil {
 		return err
@@ -224,31 +253,58 @@ func Start(w io.Writer, dir, hash string) error {
 	return logfile.Update(dir, file.Name, file.Body)
 }
 
-// End closes the task matching hash in today's log.
-func End(w io.Writer, dir, hash string) error {
+// TodoEnd closes the tasks matching hashes in today's log. All hashes
+// must resolve to open tasks or none of them are persisted.
+func TodoEnd(w io.Writer, dir string, hashes []string) error {
 	file, err := logfile.Get(dir, "")
 	if err != nil {
 		return err
 	}
 
-	finished, err := log.Finish(&file.Body, hash)
-	if err != nil {
-		return err
+	finished := make([]model.Item, 0, len(hashes))
+	for _, hash := range hashes {
+		item, err := log.Finish(&file.Body, hash)
+		if err != nil {
+			return err
+		}
+		finished = append(finished, item)
 	}
 
-	view.FinishedTask(w, finished)
+	for _, item := range finished {
+		view.FinishedTask(w, item)
+	}
 	return logfile.Update(dir, file.Name, file.Body)
 }
 
 // Del removes the item matching hash from today's log.
-func Del(dir, hash string) error {
+func Del(w io.Writer, dir, hash string) error {
 	file, err := logfile.Get(dir, "")
 	if err != nil {
 		return err
 	}
 
+	item, ok := findItem(file.Body, hash)
+	if !ok {
+		return fmt.Errorf("target item %q is not found", hash)
+	}
+
 	log.Delete(&file.Body, hash)
-	return logfile.Update(dir, file.Name, file.Body)
+	if err := logfile.Update(dir, file.Name, file.Body); err != nil {
+		return err
+	}
+
+	view.Deleted(w, item)
+	return nil
+}
+
+// findItem returns the item matching hash in l, if any.
+func findItem(l model.Log, hash string) (model.Item, bool) {
+	for _, item := range l.Items {
+		if item.Hash == hash {
+			return item, true
+		}
+	}
+	return model.Item{}, false
 }
 
 // ListOptions controls the list command behavior.

@@ -42,8 +42,8 @@ func TestVersion(t *testing.T) {
 func TestAddListFlow(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	mustExecute(t, "add", "buy cabbage")
-	mustExecute(t, "add", "-m", "shrimp memo")
+	mustExecute(t, "todo", "buy cabbage")
+	mustExecute(t, "add", "shrimp memo")
 
 	out := mustExecute(t, "list")
 	for _, want := range []string{"Task ->", "buy cabbage", "Memo ->", "shrimp memo"} {
@@ -58,22 +58,55 @@ func TestAddListFlow(t *testing.T) {
 	}
 }
 
-func TestStartFlow(t *testing.T) {
+func TestAddOutputsHash(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	mustExecute(t, "add", "-s", "slice cabbage")
+	out := mustExecute(t, "add", "buy cabbage")
+	if !strings.Contains(out, "Added!!") {
+		t.Errorf("add output should confirm the addition:\n%s", out)
+	}
+}
+
+func TestTodoStartFlow(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	mustExecute(t, "todo", "-s", "slice cabbage")
 
 	out := mustExecute(t, "list")
 	if !strings.Contains(out, "[>] slice cabbage") {
-		t.Errorf("task added with -s should be shown as started:\n%s", out)
+		t.Errorf("todo added with -s should be shown as started:\n%s", out)
 	}
 
-	if _, err := execute(t, "add", "-m", "-s", "impossible"); err == nil {
-		t.Error("add -m -s should fail as mutually exclusive")
+	if _, err := execute(t, "todo", "start", "no-such-hash"); err == nil {
+		t.Error("todo start with an unknown hash should fail")
+	}
+}
+
+func TestTodoEndMultipleHashes(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	mustExecute(t, "todo", "first task")
+	mustExecute(t, "todo", "second task")
+
+	list := mustExecute(t, "list")
+	var hashes []string
+	for _, line := range strings.Split(list, "\n") {
+		if strings.HasPrefix(line, "- [ ]") {
+			fields := strings.Fields(line)
+			hashes = append(hashes, fields[len(fields)-1])
+		}
+	}
+	if len(hashes) != 2 {
+		t.Fatalf("hashes = %+v, want 2:\n%s", hashes, list)
 	}
 
-	if _, err := execute(t, "start", "no-such-hash"); err == nil {
-		t.Error("start with an unknown hash should fail")
+	out := mustExecute(t, "todo", "end", hashes[0], hashes[1])
+	if got := strings.Count(out, "Finished!!"); got != 2 {
+		t.Errorf("Finished!! count = %d, want 2:\n%s", got, out)
+	}
+
+	if _, err := execute(t, "todo", "end", "no-such-hash"); err == nil {
+		t.Error("todo end with an unknown hash should fail")
 	}
 }
 
@@ -105,8 +138,8 @@ func TestTagFlow(t *testing.T) {
 func TestDiffFlow(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	mustExecute(t, "add", "first task")
-	mustExecute(t, "add", "second task")
+	mustExecute(t, "todo", "first task")
+	mustExecute(t, "todo", "second task")
 
 	list := mustExecute(t, "list")
 	var hashes []string
@@ -162,7 +195,7 @@ func TestInvalidDateFails(t *testing.T) {
 func TestUnknownHashFails(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	if _, err := execute(t, "end", "no-such-hash"); err == nil {
-		t.Error("end with an unknown hash should fail")
+	if _, err := execute(t, "todo", "end", "no-such-hash"); err == nil {
+		t.Error("todo end with an unknown hash should fail")
 	}
 }

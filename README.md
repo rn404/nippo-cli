@@ -37,26 +37,27 @@ go install github.com/rn404/nippo-cli/cmd/sava@latest
 ## Usage
 
 ```
-# Add todo item
+# Add a memo (default)
 sava add <message>
 
-# Add todo item and start it right away
-sava add -s <message>
+# Add a TODO item
+sava todo <message>
 
-# Add memo item
-sava add -m <message>
+# Add a TODO item and start it right away
+sava todo -s <message>
 
-# Start todo item
-sava start <hash>
+# Start an existing TODO item
+sava todo start <hash>
 
-# Finish todo item
-sava end <hash>
+# Finish one or more TODO items
+sava todo end <hash>...
 
 # Delete item
 sava del <hash>
 
-# Add item with tags / manage tags afterwards
+# Add item with tags (memo or TODO) / manage tags afterwards
 sava add -t <tag>[,<tag>...] <message>
+sava todo -t <tag>[,<tag>...] <message>
 sava tag <hash> <tag>...
 sava tag -d <hash> <tag>...
 sava tag --list
