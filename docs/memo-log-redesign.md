@@ -62,12 +62,14 @@ sava todo -t <tag>,... <contents> # タグ付き TODO
 sava start <hash>                 # 既存 TODO に着手/再開
 sava end <hash>...                # 完了（#10: 複数 hash 指定に対応）
 
-sava del <hash>                   # 削除（当日分のみ。メモ/TODO共通）
+sava del <hash>                   # 削除（直近30日を検索。メモ/TODO共通）
+sava del <date>:<hash>            # 特定の日を直接指定して削除
+sava del --deep <hash>            # 全期間を検索して削除
 sava tag ...                      # 既存のまま（当日分のみ）
 
 sava list                         # 今日の時系列タイムライン
 sava list <date> / -a / -s / -t   # 既存のまま
-sava diff ...                     # 既存のまま
+sava diff <date>:<hashA>...<date>:<hashB>  # 常に <date>:<hash> を要求
 sava clear ...                    # 既存のまま
 
 # sava carry という独立コマンドは存在しない（自動発火のため）
@@ -251,3 +253,50 @@ Added!!
        「過去アイテムを直接操作しようとした」エラー案内の重要性が増す。
        有効なまま
 * #4: 影響なし。有効なまま
+
+## `<date>:<hash>` 参照形式の導入 (2026-07-26)
+
+### 背景
+
+Phase A のバグ修正ラウンドで、hash 衝突リトライ（`log.Add` の
+`uniqueID`）は同じ日のログ内でしか一意性を保証しないことが分かった
+（フォローアップレビュー指摘1）。一方 `index.json` の旧 `Hashes`
+フィールド（hash → 日付の逆引き）は全期間で hash が一意という前提で
+作られており、`sava diff` がそれを使って hash からアイテムを解決
+していた。日をまたいだ衝突が起きた場合、`diff` が間違った日の
+アイテムを黙って指してしまう可能性があった。
+
+### 決定事項
+
+1. **`sava diff` は常に `<date>:<hash>` 形式を要求する**（bare hash は
+   受け付けない）。日付が常に明示されるため、hash の一意性を全期間で
+   保証する必要が最初からなくなる
+2. これに伴い、`index.json` の `Hashes` フィールド・`command.lookup`・
+   `Diff` 内の「index が古ければ1回再構築してリトライ」という
+   self-heal の仕組みを**丸ごと削除**した。`Hashes` の唯一の利用者が
+   `lookup`（`Diff` からのみ呼ばれる）だったため、`diff` の形式変更で
+   このサブシステム自体が不要になった
+3. **`sava del` はデフォルトで直近 `storagePeriodDays`（30日）分の
+   ログを検索する**（`clear` の保持期間と同じ窓）。今までの「当日分
+   のみ」という制約を撤廃し、直近の消し忘れ・書き間違いに対応しやすく
+   した
+   * 検索して一致が0件なら not found、1件ならそこを削除、2件以上
+     （複数日にまたがる hash 衝突）なら**エラーを返して何も削除せず
+     終了**し、`<date>:<hash>` で指定し直すよう案内する
+   * `<date>:<hash>` を直接渡した場合は検索をスキップしてその日に
+     直接アクセスする（曖昧性解消の手段にもなる）
+   * `--deep` フラグで直近30日の窓を外し、全期間を検索できる
+4. `sava start` / `sava end` / `sava tag` は今まで通り当日分のみ
+   （過去ログは不変という原則、およびこれらが TODO のライフサイクル
+   管理であり「消し忘れの掃除」とは性質が異なるため、`del` とは
+   スコープを分けたままにする）
+
+### 実装メモ
+
+* `internal/log.HashExists`（旧 `hashExists`）をエクスポートし、
+  `command.Del` の複数日検索から再利用した（第三の同種スキャン
+  ループを増やさないため）
+* `command.parseRef`/`resolveRef` を新設し、`Diff`/`Del` 双方が
+  `<date>:<hash>` の解析・解決を共有する
+* `list` の各行に `<date>:<hash>` をそのまま貼り付けられる形式で
+  出す改善は別issue（今回は見送り）
