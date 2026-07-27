@@ -152,38 +152,43 @@ func TagList(w io.Writer, dir string) error {
 	return nil
 }
 
-// Diff prints the elapsed time between the creation of two items,
-// resolving each hash across all daily logs via the index. The index
-// is rebuilt once when a hash is not found, so stale cache entries
-// heal themselves.
-func Diff(w io.Writer, dir, hashA, hashB string) error {
-	idx, err := index.Load(dir)
-	if err != nil {
-		return err
+// parseRef splits a "<date>:<hash>" reference into its parts. ok is
+// false when ref has no colon (a bare hash, not a full reference).
+func parseRef(ref string) (date, hash string, ok bool) {
+	date, hash, found := strings.Cut(ref, ":")
+	if !found {
+		return "", ref, false
+	}
+	return date, hash, true
+}
+
+// resolveRef finds the item referenced by "<date>:<hash>".
+func resolveRef(dir, ref string) (model.Item, error) {
+	date, hash, ok := parseRef(ref)
+	if !ok {
+		return model.Item{}, fmt.Errorf("expected <date>:<hash>, got %q", ref)
 	}
 
-	rebuilt := false
-	resolve := func(hash string) (model.Item, error) {
-		for {
-			if item, ok := lookup(dir, idx, hash); ok {
-				return item, nil
-			}
-			if rebuilt {
-				return model.Item{}, fmt.Errorf("target item %q is not found", hash)
-			}
-			idx, err = index.Rebuild(dir)
-			if err != nil {
-				return model.Item{}, err
-			}
-			rebuilt = true
+	file, err := logfile.Stat(dir, date)
+	if err != nil {
+		return model.Item{}, err
+	}
+	for _, item := range file.Body.Items {
+		if item.Hash == hash {
+			return item, nil
 		}
 	}
+	return model.Item{}, fmt.Errorf("target item %q is not found on %s", hash, date)
+}
 
-	itemA, err := resolve(hashA)
+// Diff prints the elapsed time between the creation of two items,
+// each given as "<date>:<hash>".
+func Diff(w io.Writer, dir, refA, refB string) error {
+	itemA, err := resolveRef(dir, refA)
 	if err != nil {
 		return err
 	}
-	itemB, err := resolve(hashB)
+	itemB, err := resolveRef(dir, refB)
 	if err != nil {
 		return err
 	}
@@ -195,26 +200,6 @@ func Diff(w io.Writer, dir, hashA, hashB string) error {
 
 	view.Diff(w, itemA, itemB, elapsed)
 	return nil
-}
-
-// lookup finds the item behind hash using the index. A stale entry
-// (missing file or hash no longer in it) reports a miss.
-func lookup(dir string, idx index.Index, hash string) (model.Item, bool) {
-	date, ok := idx.Hashes[hash]
-	if !ok {
-		return model.Item{}, false
-	}
-
-	file, err := logfile.Stat(dir, date)
-	if err != nil {
-		return model.Item{}, false
-	}
-	for _, item := range file.Body.Items {
-		if item.Hash == hash {
-			return item, true
-		}
-	}
-	return model.Item{}, false
 }
 
 // elapsedBetween returns the absolute distance between the creation
@@ -297,9 +282,48 @@ func dedupe(hashes []string) []string {
 	return out
 }
 
-// Del removes the item matching hash from today's log.
-func Del(w io.Writer, dir, hash string) error {
-	file, err := logfile.Get(dir, "")
+// Del removes the item matching ref from a daily log. ref may be a
+// bare hash, searched across the last storagePeriodDays days (or
+// every day, when deep is true), or a "<date>:<hash>" reference that
+// is resolved directly, skipping the search.
+func Del(w io.Writer, dir, ref string, deep bool) error {
+	if date, hash, ok := parseRef(ref); ok {
+		return deleteOn(w, dir, date, hash)
+	}
+	hash := ref
+
+	refs, err := logfile.List(dir)
+	if err != nil {
+		return err
+	}
+	if !deep {
+		refs = withinStoragePeriod(refs)
+	}
+
+	var found []string
+	for _, r := range refs {
+		file, err := logfile.Stat(dir, r.Name)
+		if err != nil {
+			return err
+		}
+		if log.HashExists(file.Body.Items, hash) {
+			found = append(found, r.Name)
+		}
+	}
+
+	switch len(found) {
+	case 0:
+		return fmt.Errorf("target item %q is not found", hash)
+	case 1:
+		return deleteOn(w, dir, found[0], hash)
+	default:
+		return fmt.Errorf("hash %q exists on multiple days (%s); specify as <date>:<hash>", hash, strings.Join(found, ", "))
+	}
+}
+
+// deleteOn removes the item matching hash from the log for date.
+func deleteOn(w io.Writer, dir, date, hash string) error {
+	file, err := logfile.Stat(dir, date)
 	if err != nil {
 		return err
 	}
@@ -315,6 +339,23 @@ func Del(w io.Writer, dir, hash string) error {
 
 	view.Deleted(w, item)
 	return nil
+}
+
+// withinStoragePeriod filters refs down to the last storagePeriodDays
+// days, mirroring clearOld's retention window.
+func withinStoragePeriod(refs []logfile.Ref) []logfile.Ref {
+	deadline := time.Now().AddDate(0, 0, -storagePeriodDays)
+	kept := refs[:0]
+	for _, ref := range refs {
+		date, err := model.ParseDate(ref.Name)
+		if err != nil {
+			continue
+		}
+		if !date.Before(deadline) {
+			kept = append(kept, ref)
+		}
+	}
+	return kept
 }
 
 // ListOptions controls the list command behavior.

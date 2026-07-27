@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/rn404/nippo-cli/internal/index"
 	"github.com/rn404/nippo-cli/internal/logfile"
@@ -57,7 +58,7 @@ func TestAddEndDelFlow(t *testing.T) {
 	}
 
 	out.Reset()
-	if err := Del(&out, dir, memo.Hash); err != nil {
+	if err := Del(&out, dir, memo.Hash, false); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), "Deleted!!") {
@@ -67,7 +68,7 @@ func TestAddEndDelFlow(t *testing.T) {
 		t.Errorf("items after Del = %+v, want only the task", items)
 	}
 
-	if err := Del(&out, dir, "no-such-hash"); err == nil {
+	if err := Del(&out, dir, "no-such-hash", false); err == nil {
 		t.Errorf("deleting unknown hash should fail")
 	}
 }
@@ -369,52 +370,112 @@ func TestDiffAcrossDays(t *testing.T) {
 		{Hash: "bbbb2222", Content: "feed the shrimp", CreatedAt: "2026-07-06T12:30:00.000Z", UpdatedAt: "2026-07-06T12:30:00.000Z"},
 	})
 
-	// No index file exists yet: Diff must rebuild it by itself.
 	var out strings.Builder
-	if err := Diff(&out, dir, "aaaa1111", "bbbb2222"); err != nil {
+	if err := Diff(&out, dir, "2026-07-05:aaaa1111", "2026-07-06:bbbb2222"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), "Elapsed: 1d 2h 30m") {
 		t.Errorf("Diff output = %q", out.String())
 	}
-	if _, err := os.Stat(index.Path(dir)); err != nil {
-		t.Errorf("Diff should persist the rebuilt index: %v", err)
-	}
 
 	// Reversed order measures the same distance.
 	out.Reset()
-	if err := Diff(&out, dir, "bbbb2222", "aaaa1111"); err != nil {
+	if err := Diff(&out, dir, "2026-07-06:bbbb2222", "2026-07-05:aaaa1111"); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), "Elapsed: 1d 2h 30m") {
 		t.Errorf("reversed Diff output = %q", out.String())
 	}
 
-	if err := Diff(&out, dir, "aaaa1111", "no-such-hash"); err == nil {
+	if err := Diff(&out, dir, "2026-07-05:aaaa1111", "2026-07-05:no-such-hash"); err == nil {
 		t.Errorf("Diff with unknown hash should fail")
+	}
+	if err := Diff(&out, dir, "aaaa1111", "2026-07-06:bbbb2222"); err == nil {
+		t.Errorf("Diff with a bare hash (no date) should fail")
 	}
 }
 
-func TestDiffHealsStaleIndex(t *testing.T) {
+func TestDelSearchesWithinStoragePeriod(t *testing.T) {
 	dir := t.TempDir()
-	writeDay(t, dir, "2026-07-05", []model.Item{
-		{Hash: "aaaa1111", Content: "buy cabbage", CreatedAt: "2026-07-05T10:00:00.000Z", UpdatedAt: "2026-07-05T10:00:00.000Z"},
-	})
-	if _, err := index.Rebuild(dir); err != nil {
-		t.Fatal(err)
-	}
-
-	// The item appears after the index was built: a stale cache miss.
-	writeDay(t, dir, "2026-07-06", []model.Item{
-		{Hash: "bbbb2222", Content: "feed the shrimp", CreatedAt: "2026-07-06T10:00:00.000Z", UpdatedAt: "2026-07-06T10:00:00.000Z"},
+	recent := time.Now().AddDate(0, 0, -5).Format("2006-01-02")
+	writeDay(t, dir, recent, []model.Item{
+		{Hash: "aaaa1111", Content: "recent memo", CreatedAt: "2026-01-01T00:00:00.000Z", UpdatedAt: "2026-01-01T00:00:00.000Z"},
 	})
 
 	var out strings.Builder
-	if err := Diff(&out, dir, "aaaa1111", "bbbb2222"); err != nil {
+	if err := Del(&out, dir, "aaaa1111", false); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "Elapsed: 1d") {
-		t.Errorf("Diff should heal the stale index: %q", out.String())
+	if !strings.Contains(out.String(), "Deleted!!") {
+		t.Errorf("Del output = %q", out.String())
+	}
+	file, err := logfile.Stat(dir, recent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(file.Body.Items) != 0 {
+		t.Errorf("item should be removed: %+v", file.Body.Items)
+	}
+}
+
+func TestDelIgnoresOldDaysUnlessDeep(t *testing.T) {
+	dir := t.TempDir()
+	old := time.Now().AddDate(0, 0, -40).Format("2006-01-02")
+	writeDay(t, dir, old, []model.Item{
+		{Hash: "aaaa1111", Content: "ancient memo", CreatedAt: "2026-01-01T00:00:00.000Z", UpdatedAt: "2026-01-01T00:00:00.000Z"},
+	})
+
+	var out strings.Builder
+	if err := Del(&out, dir, "aaaa1111", false); err == nil {
+		t.Error("Del without --deep should not find an item older than the storage period")
+	}
+	if err := Del(&out, dir, "aaaa1111", true); err != nil {
+		t.Fatalf("Del --deep should find the old item: %v", err)
+	}
+}
+
+func TestDelAmbiguousHashAcrossDays(t *testing.T) {
+	dir := t.TempDir()
+	dayA := time.Now().AddDate(0, 0, -3).Format("2006-01-02")
+	dayB := time.Now().AddDate(0, 0, -5).Format("2006-01-02")
+	writeDay(t, dir, dayA, []model.Item{
+		{Hash: "dup11111", Content: "on day A", CreatedAt: "2026-01-01T00:00:00.000Z", UpdatedAt: "2026-01-01T00:00:00.000Z"},
+	})
+	writeDay(t, dir, dayB, []model.Item{
+		{Hash: "dup11111", Content: "on day B", CreatedAt: "2026-01-01T00:00:00.000Z", UpdatedAt: "2026-01-01T00:00:00.000Z"},
+	})
+
+	var out strings.Builder
+	if err := Del(&out, dir, "dup11111", false); err == nil {
+		t.Error("Del with an ambiguous hash should fail without deleting anything")
+	}
+	for _, day := range []string{dayA, dayB} {
+		file, err := logfile.Stat(dir, day)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(file.Body.Items) != 1 {
+			t.Errorf("neither day should be touched by the ambiguous Del: %s has %+v", day, file.Body.Items)
+		}
+	}
+
+	// The <date>:<hash> form disambiguates directly.
+	if err := Del(&out, dir, dayA+":dup11111", false); err != nil {
+		t.Fatal(err)
+	}
+	fileA, err := logfile.Stat(dir, dayA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(fileA.Body.Items) != 0 {
+		t.Errorf("day A's item should be gone: %+v", fileA.Body.Items)
+	}
+	fileB, err := logfile.Stat(dir, dayB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(fileB.Body.Items) != 1 {
+		t.Errorf("day B's item should be untouched: %+v", fileB.Body.Items)
 	}
 }
 

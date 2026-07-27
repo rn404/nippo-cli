@@ -3,6 +3,8 @@ package main
 import (
 	"strings"
 	"testing"
+
+	"github.com/rn404/nippo-cli/internal/model"
 )
 
 // execute runs the root command with args and returns combined output.
@@ -166,22 +168,27 @@ func TestDiffFlow(t *testing.T) {
 	if len(hashes) != 2 {
 		t.Fatalf("hashes = %+v, want 2:\n%s", hashes, list)
 	}
+	today := model.Today()
+	refA, refB := today+":"+hashes[0], today+":"+hashes[1]
 
-	out := mustExecute(t, "diff", hashes[0]+"..."+hashes[1])
+	out := mustExecute(t, "diff", refA+"..."+refB)
 	if !strings.Contains(out, "Diff...") || !strings.Contains(out, "Elapsed: ") {
 		t.Errorf("diff output:\n%s", out)
 	}
 
 	// Two-argument form works as well.
-	out = mustExecute(t, "diff", hashes[0], hashes[1])
+	out = mustExecute(t, "diff", refA, refB)
 	if !strings.Contains(out, "Elapsed: ") {
 		t.Errorf("two-arg diff output:\n%s", out)
 	}
 
-	if _, err := execute(t, "diff", "lonely-hash"); err == nil {
+	if _, err := execute(t, "diff", "lonely-ref"); err == nil {
 		t.Error("diff without a separator should fail")
 	}
-	if _, err := execute(t, "diff", hashes[0]+"...no-such-hash"); err == nil {
+	if _, err := execute(t, "diff", hashes[0], hashes[1]); err == nil {
+		t.Error("diff with bare hashes (no date) should fail")
+	}
+	if _, err := execute(t, "diff", refA+"..."+today+":no-such-hash"); err == nil {
 		t.Error("diff with an unknown hash should fail")
 	}
 }

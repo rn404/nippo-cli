@@ -101,14 +101,14 @@ func TestDeleteRemovesOnlyFirstMatch(t *testing.T) {
 }
 
 func TestHashExists(t *testing.T) {
-	if !hashExists([]model.Item{{Hash: "x"}}, "x") {
-		t.Error("hashExists should find a matching hash")
+	if !HashExists([]model.Item{{Hash: "x"}}, "x") {
+		t.Error("HashExists should find a matching hash")
 	}
-	if hashExists([]model.Item{{Hash: "x"}}, "y") {
-		t.Error("hashExists should not match a different hash")
+	if HashExists([]model.Item{{Hash: "x"}}, "y") {
+		t.Error("HashExists should not match a different hash")
 	}
-	if hashExists(nil, "x") {
-		t.Error("hashExists on an empty slice should be false")
+	if HashExists(nil, "x") {
+		t.Error("HashExists on an empty slice should be false")
 	}
 }
 

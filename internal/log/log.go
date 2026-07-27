@@ -49,14 +49,16 @@ func Add(l *model.Log, content string, isTask bool) (model.Item, error) {
 // uniqueID generates an ID that none of items already has.
 func uniqueID(items []model.Item) string {
 	id := generateID()
-	for hashExists(items, id) {
+	for HashExists(items, id) {
 		id = generateID()
 	}
 	return id
 }
 
-// hashExists reports whether any item already has hash.
-func hashExists(items []model.Item, hash string) bool {
+// HashExists reports whether any item already has hash. Exported so
+// callers outside this package (e.g. a multi-day search for a hash)
+// can reuse the same check instead of re-scanning by hand.
+func HashExists(items []model.Item, hash string) bool {
 	for _, item := range items {
 		if item.Hash == hash {
 			return true

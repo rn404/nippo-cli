@@ -34,8 +34,7 @@ func addTaggedItem(t *testing.T, dir, day, content string, tags []string) string
 func TestBuildAndRebuild(t *testing.T) {
 	dir := t.TempDir()
 	first := addTaggedItem(t, dir, "2026-07-10", "buy cabbage", []string{"cabbage"})
-	second := addTaggedItem(t, dir, "2026-07-11", "feed the shrimp", []string{"shrimp", "pet"})
-	plain := addTaggedItem(t, dir, "2026-07-11", "no tags here", nil)
+	addTaggedItem(t, dir, "2026-07-11", "feed the shrimp", []string{"shrimp", "pet"})
 
 	idx, err := Rebuild(dir)
 	if err != nil {
@@ -48,11 +47,6 @@ func TestBuildAndRebuild(t *testing.T) {
 	if entries := idx.Tags["cabbage"]; len(entries) != 1 || entries[0].Hash != first || entries[0].Date != "2026-07-10" {
 		t.Errorf("cabbage entries = %+v", entries)
 	}
-	for hash, date := range map[string]string{first: "2026-07-10", second: "2026-07-11", plain: "2026-07-11"} {
-		if idx.Hashes[hash] != date {
-			t.Errorf("Hashes[%s] = %q, want %q", hash, idx.Hashes[hash], date)
-		}
-	}
 
 	// Rebuild persists the index as readable JSON next to the logs.
 	data, err := os.ReadFile(Path(dir))
@@ -63,8 +57,8 @@ func TestBuildAndRebuild(t *testing.T) {
 	if err := json.Unmarshal(data, &reloaded); err != nil {
 		t.Fatalf("index file should be valid JSON: %v", err)
 	}
-	if len(reloaded.Hashes) != 3 {
-		t.Errorf("persisted hashes = %+v, want 3", reloaded.Hashes)
+	if len(reloaded.Tags) != 3 {
+		t.Errorf("persisted tags = %+v, want 3", reloaded.Tags)
 	}
 }
 
@@ -73,7 +67,7 @@ func TestBuildEmptyDir(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(idx.Tags) != 0 || len(idx.Hashes) != 0 {
+	if len(idx.Tags) != 0 {
 		t.Errorf("empty dir should yield an empty index: %+v", idx)
 	}
 }
@@ -102,15 +96,15 @@ func TestLoad(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if idx.Tags == nil || idx.Hashes == nil {
-		t.Errorf("Load should return non-nil maps: %+v", idx)
+	if idx.Tags == nil {
+		t.Errorf("Load should return a non-nil map: %+v", idx)
 	}
 
 	// A broken file is treated as an empty cache, not an error.
 	if err := os.WriteFile(Path(dir), []byte("not json"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if idx, err = Load(dir); err != nil || idx.Tags == nil || idx.Hashes == nil {
+	if idx, err = Load(dir); err != nil || idx.Tags == nil {
 		t.Errorf("broken index should load as empty: %+v, %v", idx, err)
 	}
 
@@ -123,7 +117,7 @@ func TestLoad(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if idx.Hashes[hash] != "2026-07-11" || len(idx.Tags["go"]) != 1 {
+	if entries := idx.Tags["go"]; len(entries) != 1 || entries[0].Hash != hash || entries[0].Date != "2026-07-11" {
 		t.Errorf("loaded index mismatch: %+v", idx)
 	}
 }
