@@ -59,19 +59,23 @@ func Added(w io.Writer, item model.Item) {
 
 // Deleted prints the deleted item confirmation.
 func Deleted(w io.Writer, item model.Item) {
-	fmt.Fprintln(w, "Deleted!!")
-	fmt.Fprintf(w, "> %s (%s)\n", item.Content, formatTime(item.CreatedAt))
+	confirmItem(w, "Deleted!!", item)
 }
 
 // FinishedTask prints the closed task confirmation.
 func FinishedTask(w io.Writer, item model.Item) {
-	fmt.Fprintln(w, "Finished!!")
-	fmt.Fprintf(w, "> %s (%s)\n", item.Content, formatTime(item.CreatedAt))
+	confirmItem(w, "Finished!!", item)
 }
 
 // StartedTask prints the started task confirmation.
 func StartedTask(w io.Writer, item model.Item) {
-	fmt.Fprintln(w, "Started!!")
+	confirmItem(w, "Started!!", item)
+}
+
+// confirmItem prints a "<label>" header followed by the item's
+// content and time. Shared by Deleted, FinishedTask, and StartedTask.
+func confirmItem(w io.Writer, label string, item model.Item) {
+	fmt.Fprintln(w, label)
 	fmt.Fprintf(w, "> %s (%s)\n", item.Content, formatTime(item.CreatedAt))
 }
 

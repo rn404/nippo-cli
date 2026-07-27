@@ -48,18 +48,22 @@ func Add(w io.Writer, dir, content string, opts AddOptions) error {
 	if err != nil {
 		return err
 	}
-	return persistNewItem(w, dir, file, item)
+	return persistItem(w, dir, file, item, len(opts.Tags) > 0, view.Added)
 }
 
-// persistNewItem writes file, confirms item to w, and rebuilds the
-// tag index if item carries any tags. Shared by Add and Todo.
-func persistNewItem(w io.Writer, dir string, file *logfile.LogFile, item model.Item) error {
+// persistItem writes file, reports item to w via confirm, and
+// rebuilds the tag index when tagsChanged. tagsChanged must be true
+// whenever tags were added OR removed, even if the item ends up with
+// zero tags: removing the last tag still leaves a stale index entry
+// that needs purging, so "item has tags now" is not a safe substitute
+// for "this call touched tags." Shared by Add, Todo, and Tag.
+func persistItem(w io.Writer, dir string, file *logfile.LogFile, item model.Item, tagsChanged bool, confirm func(io.Writer, model.Item)) error {
 	if err := logfile.Update(dir, file.Name, file.Body); err != nil {
 		return err
 	}
-	view.Added(w, item)
+	confirm(w, item)
 
-	if len(item.Tags) > 0 {
+	if tagsChanged {
 		if _, err := index.Rebuild(dir); err != nil {
 			return err
 		}
@@ -95,7 +99,7 @@ func Todo(w io.Writer, dir, content string, opts TodoOptions) error {
 	if err != nil {
 		return err
 	}
-	return persistNewItem(w, dir, file, item)
+	return persistItem(w, dir, file, item, len(opts.Tags) > 0, view.Added)
 }
 
 // Tag adds tags to (or removes them from, when remove is true) the
@@ -116,15 +120,9 @@ func Tag(w io.Writer, dir, hash string, tags []string, remove bool) error {
 		return err
 	}
 
-	if err := logfile.Update(dir, file.Name, file.Body); err != nil {
-		return err
-	}
-	view.TagsUpdated(w, item)
-
-	if _, err := index.Rebuild(dir); err != nil {
-		return err
-	}
-	return nil
+	// Always true: even removing the last tag needs the index rebuilt
+	// to purge its now-stale entry.
+	return persistItem(w, dir, file, item, true, view.TagsUpdated)
 }
 
 // TagList prints every known tag with its item count, refreshing the
@@ -242,8 +240,10 @@ func Start(w io.Writer, dir, hash string) error {
 }
 
 // End closes the tasks matching hashes in today's log. Duplicate
-// hashes are collapsed to one. All hashes must resolve to open tasks
-// or none of them are persisted.
+// hashes are collapsed to one. Within this call, all hashes must
+// resolve to open tasks or none of them are persisted (this says
+// nothing about two concurrent sava processes racing on the same
+// file — there is no file locking anywhere in this codebase).
 func End(w io.Writer, dir string, hashes []string) error {
 	file, err := logfile.Get(dir, "")
 	if err != nil {

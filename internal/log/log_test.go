@@ -80,8 +80,9 @@ func TestDelete(t *testing.T) {
 }
 
 // TestDeleteRemovesOnlyFirstMatch guards against a hash collision (see
-// TestAddAvoidsHashCollision) making Delete remove more than the one
-// item it reports.
+// TestUniqueIDRetriesOnCollision for the Add-side retry that prevents
+// same-day collisions) making Delete remove more than the one item it
+// reports.
 func TestDeleteRemovesOnlyFirstMatch(t *testing.T) {
 	l := model.Log{Items: []model.Item{
 		{Hash: "dup", Content: "first"},

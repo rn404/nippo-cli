@@ -202,14 +202,7 @@ func TestAddOutputsAddedConfirmation(t *testing.T) {
 // a successful write look like it never happened.
 func TestAddConfirmsEvenWhenIndexRebuildFails(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	// A broken sibling log file makes index.Rebuild fail (it scans
-	// every daily log), independently of today's file.
-	if err := os.WriteFile(filepath.Join(dir, "2000-01-01.json"), []byte("not json"), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	breakIndexRebuild(t, dir)
 
 	var out strings.Builder
 	if err := Add(&out, dir, "buy cabbage", AddOptions{Tags: []string{"cabbage"}}); err == nil {
@@ -258,6 +251,33 @@ func TestTagFlow(t *testing.T) {
 	}
 }
 
+// TestTagRebuildsIndexOnLastTagRemoved guards against a naive shared
+// "rebuild if item has tags" helper: removing an item's only tag
+// leaves it with zero tags, but the index still must be rebuilt to
+// purge that tag's now-stale entry.
+func TestTagRebuildsIndexOnLastTagRemoved(t *testing.T) {
+	dir := t.TempDir()
+	if err := Add(io.Discard, dir, "buy cabbage", AddOptions{Tags: []string{"onlytag"}}); err != nil {
+		t.Fatal(err)
+	}
+	item := todayItems(t, dir)[0]
+
+	if err := Tag(io.Discard, dir, item.Hash, []string{"onlytag"}, true); err != nil {
+		t.Fatal(err)
+	}
+	if updated := todayItems(t, dir)[0]; len(updated.Tags) != 0 {
+		t.Fatalf("item should have no tags left: %+v", updated.Tags)
+	}
+
+	idx, err := index.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, stale := idx.Tags["onlytag"]; stale {
+		t.Errorf("index should no longer list onlytag: %+v", idx.Tags)
+	}
+}
+
 // TestTagConfirmsEvenWhenIndexRebuildFails mirrors
 // TestAddConfirmsEvenWhenIndexRebuildFails: Tag must not skip its
 // confirmation just because the follow-up index.Rebuild fails after
@@ -268,12 +288,7 @@ func TestTagConfirmsEvenWhenIndexRebuildFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	item := todayItems(t, dir)[0]
-
-	// A broken sibling log file makes index.Rebuild fail (it scans
-	// every daily log), independently of today's file.
-	if err := os.WriteFile(filepath.Join(dir, "2000-01-01.json"), []byte("not json"), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	breakIndexRebuild(t, dir)
 
 	var out strings.Builder
 	if err := Tag(&out, dir, item.Hash, []string{"food"}, false); err == nil {
@@ -344,6 +359,19 @@ func TestListWithTagFilter(t *testing.T) {
 
 	if err := List(&out, strings.NewReader(""), dir, ListOptions{All: true, Tags: []string{"go"}}); err == nil {
 		t.Errorf("tag filter with --all should fail")
+	}
+}
+
+// breakIndexRebuild writes a corrupt sibling log file so that
+// index.Rebuild (which scans every daily log) fails, independently of
+// today's file.
+func breakIndexRebuild(t *testing.T, dir string) {
+	t.Helper()
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "2000-01-01.json"), []byte("not json"), 0o600); err != nil {
+		t.Fatal(err)
 	}
 }
 
