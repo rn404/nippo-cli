@@ -114,27 +114,25 @@ func TestHashExists(t *testing.T) {
 }
 
 // TestUniqueIDRetriesOnCollision proves the retry loop itself, since a
-// real crypto/rand collision can't be forced from a test: generateID
-// is swapped out to return two colliding IDs before a fresh one.
+// real crypto/rand collision can't be forced from a test: a stub
+// generator returns two colliding IDs before a fresh one.
 func TestUniqueIDRetriesOnCollision(t *testing.T) {
 	items := []model.Item{{Hash: "dup"}}
 
 	calls := []string{"dup", "dup", "fresh"}
 	next := 0
-	orig := generateID
-	generateID = func() string {
+	generator := func() string {
 		id := calls[next]
 		next++
 		return id
 	}
-	defer func() { generateID = orig }()
 
-	got := uniqueID(items)
+	got := uniqueID(items, generator)
 	if got != "fresh" {
 		t.Errorf("uniqueID = %q, want %q after retrying past collisions", got, "fresh")
 	}
 	if next != len(calls) {
-		t.Errorf("generateID call count = %d, want %d (retries then success)", next, len(calls))
+		t.Errorf("generator call count = %d, want %d (retries then success)", next, len(calls))
 	}
 }
 
