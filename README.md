@@ -37,33 +37,38 @@ go install github.com/rn404/nippo-cli/cmd/sava@latest
 ## Usage
 
 ```
-# Add todo item
+# Add a memo (default)
 sava add <message>
 
-# Add todo item and start it right away
-sava add -s <message>
+# Add a TODO item
+sava todo <message>
 
-# Add memo item
-sava add -m <message>
+# Add a TODO item and start it right away
+sava todo -s <message>
 
-# Start todo item
+# Start an existing TODO item
 sava start <hash>
 
-# Finish todo item
-sava end <hash>
+# Finish one or more TODO items
+sava end <hash>...
 
-# Delete item
+# Delete item (searches the last 30 days by default)
 sava del <hash>
 
-# Add item with tags / manage tags afterwards
+# Delete a specific day's item directly, or search every log ever
+sava del <date>:<hash>
+sava del --deep <hash>
+
+# Add item with tags (memo or TODO) / manage tags afterwards
 sava add -t <tag>[,<tag>...] <message>
+sava todo -t <tag>[,<tag>...] <message>
 sava tag <hash> <tag>...
 sava tag -d <hash> <tag>...
 sava tag --list
 
-# Show elapsed time between two items (resolved across days)
-sava diff <hashA>...<hashB>
-sava diff <hashA> <hashB>
+# Show elapsed time between two items (each given as <date>:<hash>)
+sava diff <date>:<hashA>...<date>:<hashB>
+sava diff <date>:<hashA> <date>:<hashB>
 
 # List today's log items
 sava list
@@ -88,8 +93,12 @@ sava clear -a
 ログは `~/.log/sava/<yyyy-MM-dd>.json` に 1 日 1 ファイルで保存されます.
 フォーマットの仕様サンプルは `testdata/log-format/` にあります.
 
-タグ操作時には `~/.log/sava/index.json` (タグ・hash から日付ファイルへの逆引きキャッシュ)
+タグ操作時には `~/.log/sava/index.json` (タグから日付ファイルへの逆引きキャッシュ)
 が再生成されます. 壊れても全ログから再構築できるキャッシュです.
+
+`sava diff` と `sava del --deep`（あるいは30日より前を含む検索）は、hash から
+日付を逆引きするのではなく `<date>:<hash>` を要求 / 全ログを直接走査します.
+これは hash の一意性が保証されるのは同一日のログ内だけであるためです.
 
 ### Objects
 * LogFile > Log > Item (Task, Memo)

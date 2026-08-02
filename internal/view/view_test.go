@@ -67,6 +67,24 @@ func TestFileStat(t *testing.T) {
 	}
 }
 
+func TestAdded(t *testing.T) {
+	var buf strings.Builder
+	Added(&buf, model.Item{Hash: "1ed29de4", Content: "review PR #123", CreatedAt: "2026-07-05T08:43:04.971Z", Tags: []string{"cli"}})
+	out := buf.String()
+	if !strings.Contains(out, "Added!!") || !strings.Contains(out, "> review PR #123 (") || !strings.Contains(out, "1ed29de4") || !strings.Contains(out, "#cli") {
+		t.Errorf("Added output = %q", out)
+	}
+}
+
+func TestDeleted(t *testing.T) {
+	var buf strings.Builder
+	Deleted(&buf, model.Item{Content: "buy cabbage", CreatedAt: "2026-07-05T08:43:04.971Z"})
+	out := buf.String()
+	if !strings.Contains(out, "Deleted!!") || !strings.Contains(out, "> buy cabbage (") {
+		t.Errorf("Deleted output = %q", out)
+	}
+}
+
 func TestFinishedTask(t *testing.T) {
 	var buf strings.Builder
 	FinishedTask(&buf, model.Item{Content: "buy cabbage", CreatedAt: "2026-07-05T08:43:04.971Z"})

@@ -50,15 +50,32 @@ func ItemList(w io.Writer, tasks, memos []model.Item) {
 	}
 }
 
+// Added prints the newly created item confirmation, including its
+// hash so it can be used right away without a separate list call.
+func Added(w io.Writer, item model.Item) {
+	fmt.Fprintln(w, "Added!!")
+	fmt.Fprintf(w, "> %s (%s) %s%s\n", item.Content, formatTime(item.CreatedAt), item.Hash, formatTags(item.Tags))
+}
+
+// Deleted prints the deleted item confirmation.
+func Deleted(w io.Writer, item model.Item) {
+	confirmItem(w, "Deleted!!", item)
+}
+
 // FinishedTask prints the closed task confirmation.
 func FinishedTask(w io.Writer, item model.Item) {
-	fmt.Fprintln(w, "Finished!!")
-	fmt.Fprintf(w, "> %s (%s)\n", item.Content, formatTime(item.CreatedAt))
+	confirmItem(w, "Finished!!", item)
 }
 
 // StartedTask prints the started task confirmation.
 func StartedTask(w io.Writer, item model.Item) {
-	fmt.Fprintln(w, "Started!!")
+	confirmItem(w, "Started!!", item)
+}
+
+// confirmItem prints a "<label>" header followed by the item's
+// content and time. Shared by Deleted, FinishedTask, and StartedTask.
+func confirmItem(w io.Writer, label string, item model.Item) {
+	fmt.Fprintln(w, label)
 	fmt.Fprintf(w, "> %s (%s)\n", item.Content, formatTime(item.CreatedAt))
 }
 

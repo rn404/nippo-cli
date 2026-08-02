@@ -29,45 +29,77 @@ const (
 
 // AddOptions controls the add command behavior.
 type AddOptions struct {
-	Memo  bool     // add a memo instead of a task
-	Start bool     // mark the task as started right away
-	Tags  []string // tags to put on the new item
+	Tags []string // tags to put on the new item
 }
 
-// Add appends a task (or a memo) to today's log.
-func Add(dir, content string, opts AddOptions) error {
-	if opts.Memo && opts.Start {
-		return errors.New("a memo cannot be started")
-	}
-
+// Add appends a memo to today's log.
+func Add(w io.Writer, dir, content string, opts AddOptions) error {
 	file, err := logfile.Get(dir, "")
 	if err != nil {
 		return err
 	}
-	item, err := log.Add(&file.Body, content, !opts.Memo)
+	item, err := log.Add(&file.Body, content, false)
 	if err != nil {
 		return err
 	}
-	if opts.Start {
-		if _, err := log.Start(&file.Body, item.Hash); err != nil {
-			return err
-		}
+	// AddTags is a no-op on empty tags, so this is safe to call
+	// unconditionally.
+	item, err = log.AddTags(&file.Body, item.Hash, opts.Tags)
+	if err != nil {
+		return err
 	}
-	if len(opts.Tags) > 0 {
-		if _, err := log.AddTags(&file.Body, item.Hash, opts.Tags); err != nil {
-			return err
-		}
-	}
+	return persistItem(w, dir, file, item, len(opts.Tags) > 0, view.Added)
+}
 
+// persistItem writes file, reports item to w via confirm, and
+// rebuilds the tag index when tagsChanged. tagsChanged must be true
+// whenever tags were added OR removed, even if the item ends up with
+// zero tags: removing the last tag still leaves a stale index entry
+// that needs purging, so "item has tags now" is not a safe substitute
+// for "this call touched tags." Shared by Add, Todo, and Tag.
+func persistItem(w io.Writer, dir string, file *logfile.LogFile, item model.Item, tagsChanged bool, confirm func(io.Writer, model.Item)) error {
 	if err := logfile.Update(dir, file.Name, file.Body); err != nil {
 		return err
 	}
-	if len(opts.Tags) > 0 {
+	confirm(w, item)
+
+	if tagsChanged {
 		if _, err := index.Rebuild(dir); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// TodoOptions controls the todo command behavior.
+type TodoOptions struct {
+	Start bool     // mark the task as started right away
+	Tags  []string // tags to put on the new item
+}
+
+// Todo appends a TODO item (task) to today's log.
+func Todo(w io.Writer, dir, content string, opts TodoOptions) error {
+	file, err := logfile.Get(dir, "")
+	if err != nil {
+		return err
+	}
+	item, err := log.Add(&file.Body, content, true)
+	if err != nil {
+		return err
+	}
+	if opts.Start {
+		item, err = log.Start(&file.Body, item.Hash)
+		if err != nil {
+			return err
+		}
+	}
+	// AddTags is a no-op on empty tags, so this is safe to call
+	// unconditionally.
+	item, err = log.AddTags(&file.Body, item.Hash, opts.Tags)
+	if err != nil {
+		return err
+	}
+	return persistItem(w, dir, file, item, len(opts.Tags) > 0, view.Added)
 }
 
 // Tag adds tags to (or removes them from, when remove is true) the
@@ -88,15 +120,9 @@ func Tag(w io.Writer, dir, hash string, tags []string, remove bool) error {
 		return err
 	}
 
-	if err := logfile.Update(dir, file.Name, file.Body); err != nil {
-		return err
-	}
-	if _, err := index.Rebuild(dir); err != nil {
-		return err
-	}
-
-	view.TagsUpdated(w, item)
-	return nil
+	// Always true: even removing the last tag needs the index rebuilt
+	// to purge its now-stale entry.
+	return persistItem(w, dir, file, item, true, view.TagsUpdated)
 }
 
 // TagList prints every known tag with its item count, refreshing the
@@ -124,38 +150,45 @@ func TagList(w io.Writer, dir string) error {
 	return nil
 }
 
-// Diff prints the elapsed time between the creation of two items,
-// resolving each hash across all daily logs via the index. The index
-// is rebuilt once when a hash is not found, so stale cache entries
-// heal themselves.
-func Diff(w io.Writer, dir, hashA, hashB string) error {
-	idx, err := index.Load(dir)
-	if err != nil {
-		return err
+// parseRef splits a "<date>:<hash>" reference into its parts. ok is
+// false when ref has no colon (a bare hash, not a full reference) or
+// either half is empty (e.g. ":hash" or "date:") — a malformed
+// reference must not be mistaken for a valid one.
+func parseRef(ref string) (date, hash string, ok bool) {
+	date, hash, found := strings.Cut(ref, ":")
+	if !found || date == "" || hash == "" {
+		return "", ref, false
+	}
+	return date, hash, true
+}
+
+// resolveRef finds the item referenced by "<date>:<hash>".
+func resolveRef(dir, ref string) (model.Item, error) {
+	date, hash, ok := parseRef(ref)
+	if !ok {
+		return model.Item{}, fmt.Errorf("expected <date>:<hash>, got %q", ref)
 	}
 
-	rebuilt := false
-	resolve := func(hash string) (model.Item, error) {
-		for {
-			if item, ok := lookup(dir, idx, hash); ok {
-				return item, nil
-			}
-			if rebuilt {
-				return model.Item{}, fmt.Errorf("target item %q is not found", hash)
-			}
-			idx, err = index.Rebuild(dir)
-			if err != nil {
-				return model.Item{}, err
-			}
-			rebuilt = true
+	file, err := logfile.Stat(dir, date)
+	if err != nil {
+		return model.Item{}, err
+	}
+	for _, item := range file.Body.Items {
+		if item.Hash == hash {
+			return item, nil
 		}
 	}
+	return model.Item{}, fmt.Errorf("target item %q is not found on %s", hash, date)
+}
 
-	itemA, err := resolve(hashA)
+// Diff prints the elapsed time between the creation of two items,
+// each given as "<date>:<hash>".
+func Diff(w io.Writer, dir, refA, refB string) error {
+	itemA, err := resolveRef(dir, refA)
 	if err != nil {
 		return err
 	}
-	itemB, err := resolve(hashB)
+	itemB, err := resolveRef(dir, refB)
 	if err != nil {
 		return err
 	}
@@ -167,26 +200,6 @@ func Diff(w io.Writer, dir, hashA, hashB string) error {
 
 	view.Diff(w, itemA, itemB, elapsed)
 	return nil
-}
-
-// lookup finds the item behind hash using the index. A stale entry
-// (missing file or hash no longer in it) reports a miss.
-func lookup(dir string, idx index.Index, hash string) (model.Item, bool) {
-	date, ok := idx.Hashes[hash]
-	if !ok {
-		return model.Item{}, false
-	}
-
-	file, err := logfile.Stat(dir, date)
-	if err != nil {
-		return model.Item{}, false
-	}
-	for _, item := range file.Body.Items {
-		if item.Hash == hash {
-			return item, true
-		}
-	}
-	return model.Item{}, false
 }
 
 // elapsedBetween returns the absolute distance between the creation
@@ -220,35 +233,131 @@ func Start(w io.Writer, dir, hash string) error {
 		return err
 	}
 
+	if err := logfile.Update(dir, file.Name, file.Body); err != nil {
+		return err
+	}
+
 	view.StartedTask(w, started)
-	return logfile.Update(dir, file.Name, file.Body)
+	return nil
 }
 
-// End closes the task matching hash in today's log.
-func End(w io.Writer, dir, hash string) error {
+// End closes the tasks matching hashes in today's log. Duplicate
+// hashes are collapsed to one. Within this call, all hashes must
+// resolve to open tasks or none of them are persisted (this says
+// nothing about two concurrent sava processes racing on the same
+// file — there is no file locking anywhere in this codebase).
+func End(w io.Writer, dir string, hashes []string) error {
 	file, err := logfile.Get(dir, "")
 	if err != nil {
 		return err
 	}
 
-	finished, err := log.Finish(&file.Body, hash)
-	if err != nil {
+	finished := make([]model.Item, 0, len(hashes))
+	for _, hash := range dedupe(hashes) {
+		item, err := log.Finish(&file.Body, hash)
+		if err != nil {
+			return err
+		}
+		finished = append(finished, item)
+	}
+
+	if err := logfile.Update(dir, file.Name, file.Body); err != nil {
 		return err
 	}
 
-	view.FinishedTask(w, finished)
-	return logfile.Update(dir, file.Name, file.Body)
+	for _, item := range finished {
+		view.FinishedTask(w, item)
+	}
+	return nil
 }
 
-// Del removes the item matching hash from today's log.
-func Del(dir, hash string) error {
-	file, err := logfile.Get(dir, "")
+// dedupe returns hashes with repeats removed, keeping first occurrence order.
+func dedupe(hashes []string) []string {
+	seen := make(map[string]bool, len(hashes))
+	out := make([]string, 0, len(hashes))
+	for _, hash := range hashes {
+		if !seen[hash] {
+			seen[hash] = true
+			out = append(out, hash)
+		}
+	}
+	return out
+}
+
+// Del removes the item matching ref from a daily log. ref may be a
+// bare hash, searched across the last storagePeriodDays days (or
+// every day, when deep is true), or a "<date>:<hash>" reference that
+// is resolved directly, skipping the search.
+func Del(w io.Writer, dir, ref string, deep bool) error {
+	if date, hash, ok := parseRef(ref); ok {
+		return deleteOn(w, dir, date, hash)
+	}
+	hash := ref
+
+	refs, err := logfile.List(dir)
+	if err != nil {
+		return err
+	}
+	if !deep {
+		refs = withinStoragePeriod(refs)
+	}
+
+	var found []string
+	for _, r := range refs {
+		file, err := logfile.Stat(dir, r.Name)
+		if err != nil {
+			return err
+		}
+		if log.HashExists(file.Body.Items, hash) {
+			found = append(found, r.Name)
+		}
+	}
+
+	switch len(found) {
+	case 0:
+		return fmt.Errorf("target item %q is not found", hash)
+	case 1:
+		return deleteOn(w, dir, found[0], hash)
+	default:
+		return fmt.Errorf("hash %q exists on multiple days (%s); specify as <date>:<hash>", hash, strings.Join(found, ", "))
+	}
+}
+
+// deleteOn removes the item matching hash from the log for date.
+func deleteOn(w io.Writer, dir, date, hash string) error {
+	file, err := logfile.Stat(dir, date)
 	if err != nil {
 		return err
 	}
 
-	log.Delete(&file.Body, hash)
-	return logfile.Update(dir, file.Name, file.Body)
+	item, err := log.Delete(&file.Body, hash)
+	if err != nil {
+		return err
+	}
+
+	if err := logfile.Update(dir, file.Name, file.Body); err != nil {
+		return err
+	}
+
+	view.Deleted(w, item)
+	return nil
+}
+
+// withinStoragePeriod filters refs down to the last storagePeriodDays
+// days, mirroring clearOld's retention window.
+func withinStoragePeriod(refs []logfile.Ref) []logfile.Ref {
+	deadline := time.Now().AddDate(0, 0, -storagePeriodDays)
+	kept := refs[:0]
+	for _, ref := range refs {
+		date, err := model.ParseDate(ref.Name)
+		if err != nil {
+			continue
+		}
+		if !date.Before(deadline) {
+			kept = append(kept, ref)
+		}
+	}
+	return kept
 }
 
 // ListOptions controls the list command behavior.

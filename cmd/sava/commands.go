@@ -14,17 +14,55 @@ func newAddCommand() *cobra.Command {
 	opts := command.AddOptions{}
 	cmd := &cobra.Command{
 		Use:   "add <contents>",
-		Short: "Add contents to nippo log.",
+		Short: "Add a memo to nippo log.",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return command.Add(logfile.Dir(), args[0], opts)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return command.Add(cmd.OutOrStdout(), logfile.Dir(), args[0], opts)
 		},
 	}
-	cmd.Flags().BoolVarP(&opts.Memo, "memo", "m", false, "Add contents like memo item.")
+	cmd.Flags().StringSliceVarP(&opts.Tags, "tag", "t", nil, "put tags on the new item")
+	return cmd
+}
+
+// newTodoCommand and newAddCommand must never gain subcommands: cobra
+// resolves a matching child command name before falling back to
+// <contents>, so a subcommand named e.g. "start" would make it
+// impossible to create an item whose content is literally "start".
+func newTodoCommand() *cobra.Command {
+	opts := command.TodoOptions{}
+	cmd := &cobra.Command{
+		Use:   "todo <contents>",
+		Short: "Add a TODO item to nippo log.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return command.Todo(cmd.OutOrStdout(), logfile.Dir(), args[0], opts)
+		},
+	}
 	cmd.Flags().BoolVarP(&opts.Start, "start", "s", false, "start the task right away")
 	cmd.Flags().StringSliceVarP(&opts.Tags, "tag", "t", nil, "put tags on the new item")
-	cmd.MarkFlagsMutuallyExclusive("memo", "start")
 	return cmd
+}
+
+func newStartCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "start <hash>",
+		Short: "start an existing TODO item.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return command.Start(cmd.OutOrStdout(), logfile.Dir(), args[0])
+		},
+	}
+}
+
+func newEndCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "end <hash>...",
+		Short: "finish one or more TODO items.",
+		Args:  cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return command.End(cmd.OutOrStdout(), logfile.Dir(), args)
+		},
+	}
 }
 
 func newTagCommand() *cobra.Command {
@@ -51,56 +89,37 @@ func newTagCommand() *cobra.Command {
 	return cmd
 }
 
-func newStartCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "start <hash>",
-		Short: "start to task.",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return command.Start(cmd.OutOrStdout(), logfile.Dir(), args[0])
-		},
-	}
-}
-
-func newEndCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "end <hash>",
-		Short: "end to task.",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return command.End(cmd.OutOrStdout(), logfile.Dir(), args[0])
-		},
-	}
-}
-
 func newDelCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "del <hash>",
-		Short: "delete task.",
+	var deep bool
+	cmd := &cobra.Command{
+		Use:   "del <hash>|<date>:<hash>",
+		Short: "delete item.",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return command.Del(logfile.Dir(), args[0])
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return command.Del(cmd.OutOrStdout(), logfile.Dir(), args[0], deep)
 		},
 	}
+	cmd.Flags().BoolVar(&deep, "deep", false, "search all logs instead of just the last 30 days")
+	return cmd
 }
 
 func newDiffCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "diff <hashA>...<hashB>",
+		Use:   "diff <date>:<hashA>...<date>:<hashB>",
 		Short: "show elapsed time between two items.",
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			hashA, hashB, err := splitDiffArgs(args)
+			refA, refB, err := splitDiffArgs(args)
 			if err != nil {
 				return err
 			}
-			return command.Diff(cmd.OutOrStdout(), logfile.Dir(), hashA, hashB)
+			return command.Diff(cmd.OutOrStdout(), logfile.Dir(), refA, refB)
 		},
 	}
 }
 
-// splitDiffArgs accepts either "<hashA>...<hashB>" (also "..") as one
-// argument or two separate hash arguments.
+// splitDiffArgs accepts either "<refA>...<refB>" (also "..") as one
+// argument or two separate ref arguments.
 func splitDiffArgs(args []string) (string, string, error) {
 	if len(args) == 2 {
 		return args[0], args[1], nil
@@ -111,7 +130,7 @@ func splitDiffArgs(args []string) (string, string, error) {
 			return parts[0], parts[1], nil
 		}
 	}
-	return "", "", fmt.Errorf("expected <hashA>...<hashB> or two hashes")
+	return "", "", fmt.Errorf("expected <refA>...<refB> or two refs")
 }
 
 func newListCommand() *cobra.Command {

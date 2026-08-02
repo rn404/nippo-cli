@@ -24,6 +24,8 @@ var (
 )
 
 // Add appends a new task or memo to the log and returns the created item.
+// The item is given a fresh hash even if it happens to collide with an
+// existing item's, so hashes stay unique within the log.
 func Add(l *model.Log, content string, isTask bool) (model.Item, error) {
 	if l.Freezed {
 		return model.Item{}, ErrFreezed
@@ -35,19 +37,51 @@ func Add(l *model.Log, content string, isTask bool) (model.Item, error) {
 	} else {
 		item = model.NewMemoItem(content)
 	}
+	item.Hash = uniqueID(l.Items, model.NewID)
 	l.Items = append(l.Items, item)
 	return item, nil
 }
 
-// Delete removes all items matching hash from the log.
-func Delete(l *model.Log, hash string) {
-	items := l.Items[:0]
-	for _, item := range l.Items {
-		if item.Hash != hash {
-			items = append(items, item)
+// uniqueID generates an ID that none of items already has, drawing
+// candidates from next (model.NewID in production; tests can pass a
+// stub to force a collision deterministically without any package-
+// level mutable state).
+func uniqueID(items []model.Item, next func() string) string {
+	id := next()
+	for HashExists(items, id) {
+		id = next()
+	}
+	return id
+}
+
+// HashExists reports whether any item already has hash. Exported so
+// callers outside this package (e.g. a multi-day search for a hash)
+// can reuse the same check instead of re-scanning by hand.
+func HashExists(items []model.Item, hash string) bool {
+	return indexOf(items, hash) != -1
+}
+
+// Delete removes the item matching hash from the log and returns it.
+// Only the first match is removed, so behavior stays well-defined even
+// if two items were ever created with colliding hashes.
+func Delete(l *model.Log, hash string) (model.Item, error) {
+	i := indexOf(l.Items, hash)
+	if i == -1 {
+		return model.Item{}, fmt.Errorf("target item %q is not found", hash)
+	}
+	item := l.Items[i]
+	l.Items = append(l.Items[:i], l.Items[i+1:]...)
+	return item, nil
+}
+
+// indexOf returns the index of the first item with hash, or -1.
+func indexOf(items []model.Item, hash string) int {
+	for i, item := range items {
+		if item.Hash == hash {
+			return i
 		}
 	}
-	l.Items = items
+	return -1
 }
 
 // Finish closes the task matching hash and returns the updated item.

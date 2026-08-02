@@ -3,6 +3,8 @@ package main
 import (
 	"strings"
 	"testing"
+
+	"github.com/rn404/nippo-cli/internal/model"
 )
 
 // execute runs the root command with args and returns combined output.
@@ -42,8 +44,8 @@ func TestVersion(t *testing.T) {
 func TestAddListFlow(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	mustExecute(t, "add", "buy cabbage")
-	mustExecute(t, "add", "-m", "shrimp memo")
+	mustExecute(t, "todo", "buy cabbage")
+	mustExecute(t, "add", "shrimp memo")
 
 	out := mustExecute(t, "list")
 	for _, want := range []string{"Task ->", "buy cabbage", "Memo ->", "shrimp memo"} {
@@ -58,22 +60,69 @@ func TestAddListFlow(t *testing.T) {
 	}
 }
 
+func TestAddOutputsHash(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	out := mustExecute(t, "add", "buy cabbage")
+	if !strings.Contains(out, "Added!!") {
+		t.Errorf("add output should confirm the addition:\n%s", out)
+	}
+}
+
 func TestStartFlow(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	mustExecute(t, "add", "-s", "slice cabbage")
+	mustExecute(t, "todo", "-s", "slice cabbage")
 
 	out := mustExecute(t, "list")
 	if !strings.Contains(out, "[>] slice cabbage") {
-		t.Errorf("task added with -s should be shown as started:\n%s", out)
-	}
-
-	if _, err := execute(t, "add", "-m", "-s", "impossible"); err == nil {
-		t.Error("add -m -s should fail as mutually exclusive")
+		t.Errorf("todo added with -s should be shown as started:\n%s", out)
 	}
 
 	if _, err := execute(t, "start", "no-such-hash"); err == nil {
 		t.Error("start with an unknown hash should fail")
+	}
+}
+
+func TestEndMultipleHashes(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	mustExecute(t, "todo", "first task")
+	mustExecute(t, "todo", "second task")
+
+	list := mustExecute(t, "list")
+	var hashes []string
+	for _, line := range strings.Split(list, "\n") {
+		if strings.HasPrefix(line, "- [ ]") {
+			fields := strings.Fields(line)
+			hashes = append(hashes, fields[len(fields)-1])
+		}
+	}
+	if len(hashes) != 2 {
+		t.Fatalf("hashes = %+v, want 2:\n%s", hashes, list)
+	}
+
+	out := mustExecute(t, "end", hashes[0], hashes[1])
+	if got := strings.Count(out, "Finished!!"); got != 2 {
+		t.Errorf("Finished!! count = %d, want 2:\n%s", got, out)
+	}
+
+	if _, err := execute(t, "end", "no-such-hash"); err == nil {
+		t.Error("end with an unknown hash should fail")
+	}
+}
+
+// TestTodoContentCanBeStartOrEnd guards against regressing to nesting
+// start/end as todo subcommands, which made it impossible to create a
+// TODO whose entire content is literally "start" or "end".
+func TestTodoContentCanBeStartOrEnd(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	for _, content := range []string{"start", "end"} {
+		out := mustExecute(t, "todo", content)
+		if !strings.Contains(out, "Added!!") {
+			t.Errorf("todo %q should create an item, not dispatch to a subcommand:\n%s", content, out)
+		}
 	}
 }
 
@@ -105,8 +154,8 @@ func TestTagFlow(t *testing.T) {
 func TestDiffFlow(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	mustExecute(t, "add", "first task")
-	mustExecute(t, "add", "second task")
+	mustExecute(t, "todo", "first task")
+	mustExecute(t, "todo", "second task")
 
 	list := mustExecute(t, "list")
 	var hashes []string
@@ -119,22 +168,27 @@ func TestDiffFlow(t *testing.T) {
 	if len(hashes) != 2 {
 		t.Fatalf("hashes = %+v, want 2:\n%s", hashes, list)
 	}
+	today := model.Today()
+	refA, refB := today+":"+hashes[0], today+":"+hashes[1]
 
-	out := mustExecute(t, "diff", hashes[0]+"..."+hashes[1])
+	out := mustExecute(t, "diff", refA+"..."+refB)
 	if !strings.Contains(out, "Diff...") || !strings.Contains(out, "Elapsed: ") {
 		t.Errorf("diff output:\n%s", out)
 	}
 
 	// Two-argument form works as well.
-	out = mustExecute(t, "diff", hashes[0], hashes[1])
+	out = mustExecute(t, "diff", refA, refB)
 	if !strings.Contains(out, "Elapsed: ") {
 		t.Errorf("two-arg diff output:\n%s", out)
 	}
 
-	if _, err := execute(t, "diff", "lonely-hash"); err == nil {
+	if _, err := execute(t, "diff", "lonely-ref"); err == nil {
 		t.Error("diff without a separator should fail")
 	}
-	if _, err := execute(t, "diff", hashes[0]+"...no-such-hash"); err == nil {
+	if _, err := execute(t, "diff", hashes[0], hashes[1]); err == nil {
+		t.Error("diff with bare hashes (no date) should fail")
+	}
+	if _, err := execute(t, "diff", refA+"..."+today+":no-such-hash"); err == nil {
 		t.Error("diff with an unknown hash should fail")
 	}
 }

@@ -1,8 +1,8 @@
 // Package index maintains index.json in the log directory: a cache
-// mapping tags and item hashes to the daily log files containing them.
-// The file is rebuildable from the logs at any time, so it may go
-// stale after item deletion; readers should rebuild on a miss instead
-// of trusting it blindly.
+// mapping tags to the daily log files containing them. The file is
+// rebuildable from the logs at any time, so it may go stale after
+// item deletion; readers should rebuild on a miss instead of
+// trusting it blindly.
 package index
 
 import (
@@ -26,8 +26,6 @@ type Entry struct {
 type Index struct {
 	// Tags maps a tag to the items carrying it.
 	Tags map[string][]Entry `json:"tags"`
-	// Hashes maps an item hash to the date (file name) holding it.
-	Hashes map[string]string `json:"hashes"`
 }
 
 // Path returns the index file location inside the log directory.
@@ -38,8 +36,7 @@ func Path(dir string) string {
 // Build scans every daily log file and returns a fresh index.
 func Build(dir string) (Index, error) {
 	idx := Index{
-		Tags:   map[string][]Entry{},
-		Hashes: map[string]string{},
+		Tags: map[string][]Entry{},
 	}
 
 	refs, err := logfile.List(dir)
@@ -53,7 +50,6 @@ func Build(dir string) (Index, error) {
 			return Index{}, err
 		}
 		for _, item := range file.Body.Items {
-			idx.Hashes[item.Hash] = file.Name
 			for _, tag := range item.Tags {
 				idx.Tags[tag] = append(idx.Tags[tag], Entry{Date: file.Name, Hash: item.Hash})
 			}
@@ -67,7 +63,7 @@ func Build(dir string) (Index, error) {
 // empty index rather than an error: the file is a cache, and callers
 // are expected to Rebuild on a miss anyway.
 func Load(dir string) (Index, error) {
-	empty := Index{Tags: map[string][]Entry{}, Hashes: map[string]string{}}
+	empty := Index{Tags: map[string][]Entry{}}
 
 	data, err := os.ReadFile(Path(dir))
 	if errors.Is(err, os.ErrNotExist) {
@@ -83,9 +79,6 @@ func Load(dir string) (Index, error) {
 	}
 	if idx.Tags == nil {
 		idx.Tags = map[string][]Entry{}
-	}
-	if idx.Hashes == nil {
-		idx.Hashes = map[string]string{}
 	}
 	return idx, nil
 }
