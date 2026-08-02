@@ -151,10 +151,12 @@ func TagList(w io.Writer, dir string) error {
 }
 
 // parseRef splits a "<date>:<hash>" reference into its parts. ok is
-// false when ref has no colon (a bare hash, not a full reference).
+// false when ref has no colon (a bare hash, not a full reference) or
+// either half is empty (e.g. ":hash" or "date:") — a malformed
+// reference must not be mistaken for a valid one.
 func parseRef(ref string) (date, hash string, ok bool) {
 	date, hash, found := strings.Cut(ref, ":")
-	if !found {
+	if !found || date == "" || hash == "" {
 		return "", ref, false
 	}
 	return date, hash, true

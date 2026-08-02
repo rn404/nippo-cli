@@ -389,6 +389,38 @@ func writeDay(t *testing.T, dir, day string, items []model.Item) {
 	}
 }
 
+// TestParseRefRejectsEmptyHalves guards against a ref like ":hash" or
+// "date:" being silently accepted with an empty date/hash instead of
+// being rejected as malformed.
+func TestParseRefRejectsEmptyHalves(t *testing.T) {
+	for _, ref := range []string{":abcd1234", "2026-08-02:", ":"} {
+		if _, _, ok := parseRef(ref); ok {
+			t.Errorf("parseRef(%q) should not be ok", ref)
+		}
+	}
+	if date, hash, ok := parseRef("2026-08-02:abcd1234"); !ok || date != "2026-08-02" || hash != "abcd1234" {
+		t.Errorf("parseRef(well-formed) = %q, %q, %v", date, hash, ok)
+	}
+}
+
+// TestDelRejectsMalformedRef guards against the exact bug found in
+// review: a ref with an empty date half must not silently resolve
+// against today's log.
+func TestDelRejectsMalformedRef(t *testing.T) {
+	dir := t.TempDir()
+	if err := Add(io.Discard, dir, "keep me", AddOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	item := todayItems(t, dir)[0]
+
+	if err := Del(io.Discard, dir, ":"+item.Hash, false); err == nil {
+		t.Error("Del with an empty-date ref should fail")
+	}
+	if items := todayItems(t, dir); len(items) != 1 {
+		t.Errorf("item should survive a rejected malformed ref: %+v", items)
+	}
+}
+
 func TestDiffAcrossDays(t *testing.T) {
 	dir := t.TempDir()
 	writeDay(t, dir, "2026-07-05", []model.Item{
