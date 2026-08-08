@@ -252,8 +252,8 @@ func Split(l model.Log) (tasks, memos []model.Item) {
 		}
 	}
 
-	sort.Slice(tasks, byCreatedAt(tasks))
-	sort.Slice(memos, byCreatedAt(memos))
+	sort.SliceStable(tasks, byCreatedAt(tasks))
+	sort.SliceStable(memos, byCreatedAt(memos))
 
 	return tasks, memos
 }
@@ -263,13 +263,15 @@ func Split(l model.Log) (tasks, memos []model.Item) {
 func Timeline(l model.Log) []model.Item {
 	items := make([]model.Item, len(l.Items))
 	copy(items, l.Items)
-	sort.Slice(items, byCreatedAt(items))
+	sort.SliceStable(items, byCreatedAt(items))
 	return items
 }
 
 // byCreatedAt orders items by creation time, oldest first. createdAt
 // is a fixed-width UTC ISO string, so lexicographic order equals
-// chronological order.
+// chronological order. Ties (items created within the same
+// millisecond) are broken by insertion order via a stable sort, so
+// output order is deterministic even when timestamps collide.
 func byCreatedAt(items []model.Item) func(i, j int) bool {
 	return func(i, j int) bool { return items[i].CreatedAt < items[j].CreatedAt }
 }

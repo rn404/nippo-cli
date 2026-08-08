@@ -313,3 +313,24 @@ func TestTimeline(t *testing.T) {
 		}
 	}
 }
+
+// TestTimelineTiesKeepInsertionOrder guards against a non-deterministic
+// tie-break: items sharing the exact same CreatedAt (possible within
+// the same millisecond) must keep their original relative order.
+func TestTimelineTiesKeepInsertionOrder(t *testing.T) {
+	l := model.Log{Items: []model.Item{
+		{Hash: "first", CreatedAt: "2026-07-05T02:00:00.000Z"},
+		{Hash: "second", CreatedAt: "2026-07-05T02:00:00.000Z"},
+		{Hash: "third", CreatedAt: "2026-07-05T02:00:00.000Z"},
+	}}
+
+	items := Timeline(l)
+	got := []string{items[0].Hash, items[1].Hash, items[2].Hash}
+	want := []string{"first", "second", "third"}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("items = %+v, want insertion order %+v", got, want)
+			break
+		}
+	}
+}
