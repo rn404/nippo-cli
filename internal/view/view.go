@@ -28,17 +28,21 @@ func Timeline(w io.Writer, items []model.Item) {
 	}
 
 	for _, item := range items {
-		marker := "・"
-		if item.IsTask() {
-			marker = "[ ]"
-			switch {
-			case item.IsClosed():
-				marker = "[x]"
-			case item.IsStarted():
-				marker = "[>]"
-			}
-		}
-		fmt.Fprintf(w, "%s %s %s %s (%s)%s\n", bullet, formatTime(item.CreatedAt), marker, item.Content, item.Hash, formatTags(item.Tags))
+		fmt.Fprintf(w, "%s %s %s %s (%s)%s\n", bullet, formatTime(item.CreatedAt), marker(item.Status()), item.Content, item.Hash, formatTags(item.Tags))
+	}
+}
+
+// marker renders a lifecycle status as its display marker.
+func marker(status model.Status) string {
+	switch status {
+	case model.StatusClosed:
+		return "[x]"
+	case model.StatusStarted:
+		return "[>]"
+	case model.StatusOpen:
+		return "[ ]"
+	default:
+		return "・"
 	}
 }
 
