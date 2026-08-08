@@ -8,44 +8,47 @@ import (
 	"github.com/rn404/nippo-cli/internal/model"
 )
 
-func TestItemList(t *testing.T) {
+func TestTimeline(t *testing.T) {
 	closed := true
 	open := false
 	startedAt := "2026-07-05T09:00:00.000Z"
-	tasks := []model.Item{
+	items := []model.Item{
 		{Hash: "aaaa1111", Content: "buy cabbage", CreatedAt: "2026-07-05T08:43:04.971Z", Closed: &closed},
 		{Hash: "bbbb2222", Content: "feed the shrimp", CreatedAt: "2026-07-05T08:43:05.026Z", Closed: &open},
 		{Hash: "dddd4444", Content: "slice cabbage", CreatedAt: "2026-07-05T08:43:05.050Z", StartedAt: &startedAt, Closed: &open},
-	}
-	memos := []model.Item{
 		{Hash: "cccc3333", Content: "shrimp looks happy today", CreatedAt: "2026-07-05T08:43:05.073Z", Tags: []string{"shrimp", "pet"}},
 	}
 
 	var buf strings.Builder
-	ItemList(&buf, tasks, memos)
+	Timeline(&buf, items)
 	out := buf.String()
 
 	for _, want := range []string{
-		"Task ->",
-		"- [x] buy cabbage (",
-		") aaaa1111",
-		"- [ ] feed the shrimp (",
-		"- [>] slice cabbage (",
-		"Memo ->",
-		"- shrimp looks happy today (",
-		") cccc3333 #shrimp #pet",
+		"- ",
+		"[x] buy cabbage (aaaa1111)",
+		"[ ] feed the shrimp (bbbb2222)",
+		"[>] slice cabbage (dddd4444)",
+		"・ shrimp looks happy today (cccc3333) #shrimp #pet",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output should contain %q:\n%s", want, out)
 		}
 	}
+
+	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+	if len(lines) != 4 {
+		t.Fatalf("lines = %d, want 4 (one per item):\n%s", len(lines), out)
+	}
+	if !strings.Contains(lines[3], "cccc3333") {
+		t.Errorf("last line should be the latest item (shrimp memo): %q", lines[3])
+	}
 }
 
-func TestItemListEmpty(t *testing.T) {
+func TestTimelineEmpty(t *testing.T) {
 	var buf strings.Builder
-	ItemList(&buf, nil, nil)
+	Timeline(&buf, nil)
 	if !strings.Contains(buf.String(), "There is no body...") {
-		t.Errorf("empty list output = %q", buf.String())
+		t.Errorf("empty timeline output = %q", buf.String())
 	}
 }
 

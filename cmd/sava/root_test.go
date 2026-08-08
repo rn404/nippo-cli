@@ -21,6 +21,23 @@ func execute(t *testing.T, args ...string) (string, error) {
 	return buf.String(), err
 }
 
+// openTaskHashes extracts the hash of every open (unchecked) task
+// line in a `sava list` timeline, e.g. "- 09:30 [ ] fix bug (7ba24aef)".
+func openTaskHashes(list string) []string {
+	var hashes []string
+	for _, line := range strings.Split(list, "\n") {
+		if !strings.Contains(line, "[ ]") {
+			continue
+		}
+		open, close := strings.Index(line, "("), strings.Index(line, ")")
+		if open == -1 || close == -1 || close < open {
+			continue
+		}
+		hashes = append(hashes, line[open+1:close])
+	}
+	return hashes
+}
+
 func mustExecute(t *testing.T, args ...string) string {
 	t.Helper()
 
@@ -48,7 +65,7 @@ func TestAddListFlow(t *testing.T) {
 	mustExecute(t, "add", "shrimp memo")
 
 	out := mustExecute(t, "list")
-	for _, want := range []string{"Task ->", "buy cabbage", "Memo ->", "shrimp memo"} {
+	for _, want := range []string{"[ ] buy cabbage", "・ shrimp memo"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("list output should contain %q:\n%s", want, out)
 		}
@@ -91,13 +108,7 @@ func TestEndMultipleHashes(t *testing.T) {
 	mustExecute(t, "todo", "second task")
 
 	list := mustExecute(t, "list")
-	var hashes []string
-	for _, line := range strings.Split(list, "\n") {
-		if strings.HasPrefix(line, "- [ ]") {
-			fields := strings.Fields(line)
-			hashes = append(hashes, fields[len(fields)-1])
-		}
-	}
+	hashes := openTaskHashes(list)
 	if len(hashes) != 2 {
 		t.Fatalf("hashes = %+v, want 2:\n%s", hashes, list)
 	}
@@ -158,13 +169,7 @@ func TestDiffFlow(t *testing.T) {
 	mustExecute(t, "todo", "second task")
 
 	list := mustExecute(t, "list")
-	var hashes []string
-	for _, line := range strings.Split(list, "\n") {
-		if strings.HasPrefix(line, "- [ ]") {
-			fields := strings.Fields(line)
-			hashes = append(hashes, fields[len(fields)-1])
-		}
-	}
+	hashes := openTaskHashes(list)
 	if len(hashes) != 2 {
 		t.Fatalf("hashes = %+v, want 2:\n%s", hashes, list)
 	}

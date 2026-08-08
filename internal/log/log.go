@@ -252,15 +252,26 @@ func Split(l model.Log) (tasks, memos []model.Item) {
 		}
 	}
 
-	// createdAt is a fixed-width UTC ISO string, so lexicographic
-	// order equals chronological order.
-	byCreatedAt := func(items []model.Item) func(i, j int) bool {
-		return func(i, j int) bool { return items[i].CreatedAt < items[j].CreatedAt }
-	}
 	sort.Slice(tasks, byCreatedAt(tasks))
 	sort.Slice(memos, byCreatedAt(memos))
 
 	return tasks, memos
+}
+
+// Timeline returns every item (tasks and memos together) sorted by
+// creation time, for a single chronological list.
+func Timeline(l model.Log) []model.Item {
+	items := make([]model.Item, len(l.Items))
+	copy(items, l.Items)
+	sort.Slice(items, byCreatedAt(items))
+	return items
+}
+
+// byCreatedAt orders items by creation time, oldest first. createdAt
+// is a fixed-width UTC ISO string, so lexicographic order equals
+// chronological order.
+func byCreatedAt(items []model.Item) func(i, j int) bool {
+	return func(i, j int) bool { return items[i].CreatedAt < items[j].CreatedAt }
 }
 
 // CountUnfinished returns the number of open tasks.

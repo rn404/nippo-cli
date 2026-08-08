@@ -295,3 +295,21 @@ func TestSplit(t *testing.T) {
 		t.Errorf("CountUnfinished = %d, want 1", got)
 	}
 }
+
+func TestTimeline(t *testing.T) {
+	items := Timeline(newTestLog())
+
+	if len(items) != 3 {
+		t.Fatalf("items = %d, want 3", len(items))
+	}
+	// Sorted by createdAt ascending, tasks and memos interleaved:
+	// task-done (01:00), task-open (02:00), memo-1 (03:00).
+	got := []string{items[0].Hash, items[1].Hash, items[2].Hash}
+	want := []string{"task-done", "task-open", "memo-1"}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("items = %+v, want order %+v", got, want)
+			break
+		}
+	}
+}

@@ -553,7 +553,7 @@ func TestListToday(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, want := range []string{"Today's logs are...", "Task ->", "buy cabbage", "Memo ->", "shrimp memo"} {
+	for _, want := range []string{"Today's logs are...", "[ ] buy cabbage", "・ shrimp memo"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("list output should contain %q:\n%s", want, out.String())
 		}
