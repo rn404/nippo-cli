@@ -92,11 +92,16 @@ graph TD;
 
 ```
 $ sava list
-- 09:12 ・ standup メモ
+- 09:12 ・ standup メモ (90ab7a28)
 - 09:30 [ ] fix bug (7ba24aef) #cli
-- 10:02 ・ shrimp 元気
+- 10:02 ・ shrimp 元気 (3c115016)
 - 11:15 [x] review PR (1ed29de4)
 ```
+
+メモ行にも hash（と、あれば tag）を表示する（del/tag の操作対象になるため省かない）。
+既存のセクション表示（`Task ->`/`Memo ->`）から、発生時刻順の単一リストに変わる点が
+このフォーマットの本質: 各行は `- HH:MM <マーカー> content (hash)#tags`、マーカーは
+メモが `・`、TODO が `[ ]`/`[x]`/`[>]`。
 
 ## 自動 carry の仕様
 
@@ -240,7 +245,7 @@ Added!!
 * [x] Phase A: `add` メモ化 / `todo` コマンド新設（作成・`-s`・`-t`）/
       `start`・`end`（独立コマンドのまま、複数 hash 対応で #10 を吸収）/
       追加・削除時の結果出力（#25）
-* [ ] Phase B: `list` タイムライン化
+* [x] Phase B: `list` タイムライン化
 * [ ] Phase C: 自動 carry（トリガー・対象日探索・新 hash コピー・
       `carriedFrom`・`logfile.Update` の凍結ガード撤去と呼び出し側での
       凍結チェック）→ #8 解決、#12 再評価

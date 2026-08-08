@@ -443,12 +443,11 @@ func listOneDay(w io.Writer, dir string, opts ListOptions) error {
 		return nil
 	}
 
-	tasks, memos := log.Split(file.Body)
+	items := log.Timeline(file.Body)
 	if len(opts.Tags) > 0 {
-		tasks = log.FilterByTags(tasks, opts.Tags, opts.Or)
-		memos = log.FilterByTags(memos, opts.Tags, opts.Or)
+		items = log.FilterByTags(items, opts.Tags, opts.Or)
 	}
-	view.ItemList(w, tasks, memos)
+	view.Timeline(w, items)
 	return nil
 }
 

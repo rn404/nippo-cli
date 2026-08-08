@@ -17,36 +17,32 @@ func Header(w io.Writer, title string) {
 	fmt.Fprintf(w, "\n    %s\n\n", title)
 }
 
-// ItemList prints tasks and memos grouped with headers.
-func ItemList(w io.Writer, tasks, memos []model.Item) {
-	if len(tasks) == 0 && len(memos) == 0 {
+// Timeline prints items (tasks and memos mixed) as a single list in
+// the order given, one line per item: a marker ("・" for a memo,
+// "[ ]"/"[x]"/"[>]" for a task), the creation time, the content, and
+// the hash/tags for reference.
+func Timeline(w io.Writer, items []model.Item) {
+	if len(items) == 0 {
 		fmt.Fprintln(w, "There is no body...")
 		return
 	}
 
-	if len(tasks) > 0 {
-		fmt.Fprintln(w, "Task ->")
-		for _, item := range tasks {
-			checkbox := "[ ]"
-			switch {
-			case item.IsClosed():
-				checkbox = "[x]"
-			case item.IsStarted():
-				checkbox = "[>]"
-			}
-			fmt.Fprintf(w, "%s %s %s (%s) %s%s\n", bullet, checkbox, item.Content, formatTime(item.CreatedAt), item.Hash, formatTags(item.Tags))
-		}
+	for _, item := range items {
+		fmt.Fprintf(w, "%s %s %s %s (%s)%s\n", bullet, formatTime(item.CreatedAt), marker(item.Status()), item.Content, item.Hash, formatTags(item.Tags))
 	}
+}
 
-	if len(tasks) > 0 && len(memos) > 0 {
-		fmt.Fprintln(w)
-	}
-
-	if len(memos) > 0 {
-		fmt.Fprintln(w, "Memo ->")
-		for _, item := range memos {
-			fmt.Fprintf(w, "%s %s (%s) %s%s\n", bullet, item.Content, formatTime(item.CreatedAt), item.Hash, formatTags(item.Tags))
-		}
+// marker renders a lifecycle status as its display marker.
+func marker(status model.Status) string {
+	switch status {
+	case model.StatusClosed:
+		return "[x]"
+	case model.StatusStarted:
+		return "[>]"
+	case model.StatusOpen:
+		return "[ ]"
+	default:
+		return "・"
 	}
 }
 

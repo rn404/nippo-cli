@@ -74,6 +74,34 @@ func (i Item) IsStarted() bool {
 	return i.StartedAt != nil
 }
 
+// Status describes an item's lifecycle stage: a memo, or a task that is
+// open, started, or closed.
+type Status int
+
+// The Status values, in precedence order from lowest to highest.
+const (
+	StatusMemo Status = iota
+	StatusOpen
+	StatusStarted
+	StatusClosed
+)
+
+// Status reports the item's lifecycle stage, giving Closed precedence
+// over Started so a task that was started and then finished still
+// reports as closed rather than started.
+func (i Item) Status() Status {
+	switch {
+	case !i.IsTask():
+		return StatusMemo
+	case i.IsClosed():
+		return StatusClosed
+	case i.IsStarted():
+		return StatusStarted
+	default:
+		return StatusOpen
+	}
+}
+
 // HasTag reports whether the item carries the tag.
 func (i Item) HasTag(tag string) bool {
 	for _, t := range i.Tags {

@@ -87,6 +87,31 @@ func TestNewItems(t *testing.T) {
 	}
 }
 
+// TestStatus pins the precedence a caller can rely on without
+// re-deriving it from IsTask/IsClosed/IsStarted: Closed always wins
+// over Started, even for a task that was both started and finished.
+func TestStatus(t *testing.T) {
+	closed, open := true, false
+	now := NowISO()
+
+	cases := []struct {
+		name string
+		item Item
+		want Status
+	}{
+		{"memo", Item{}, StatusMemo},
+		{"open task", Item{Closed: &open}, StatusOpen},
+		{"started task", Item{Closed: &open, StartedAt: &now}, StatusStarted},
+		{"closed task", Item{Closed: &closed}, StatusClosed},
+		{"closed and started task", Item{Closed: &closed, StartedAt: &now}, StatusClosed},
+	}
+	for _, c := range cases {
+		if got := c.item.Status(); got != c.want {
+			t.Errorf("%s: Status() = %v, want %v", c.name, got, c.want)
+		}
+	}
+}
+
 func TestNowISOFormat(t *testing.T) {
 	pattern := regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$`)
 	if now := NowISO(); !pattern.MatchString(now) {

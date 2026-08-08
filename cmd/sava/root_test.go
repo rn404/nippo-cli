@@ -21,6 +21,44 @@ func execute(t *testing.T, args ...string) (string, error) {
 	return buf.String(), err
 }
 
+// openTaskHashes extracts the hash of every open (unchecked) task
+// line in a `sava list` timeline, e.g. "- 09:30 [ ] fix bug (7ba24aef)".
+// It matches the "[ ]" marker only at its fixed position right after
+// the bullet and timestamp (not anywhere in the line) and reads the
+// hash from the LAST parenthesized group, so item content that
+// happens to contain "[ ]" or literal parentheses doesn't produce a
+// false match.
+func openTaskHashes(list string) []string {
+	const markerOffset = len("- 00:00 ") // bullet + space + "HH:MM" + space
+	var hashes []string
+	for _, line := range strings.Split(list, "\n") {
+		if len(line) <= markerOffset || !strings.HasPrefix(line[markerOffset:], "[ ]") {
+			continue
+		}
+		openParen, closeParen := strings.LastIndex(line, "("), strings.LastIndex(line, ")")
+		if openParen == -1 || closeParen == -1 || closeParen < openParen {
+			continue
+		}
+		hashes = append(hashes, line[openParen+1:closeParen])
+	}
+	return hashes
+}
+
+// TestOpenTaskHashesIgnoresContentThatLooksLikeAMarker guards against
+// two false-match bugs found in review: a memo whose content contains
+// the literal substring "[ ]" must not be mistaken for an open task,
+// and a task whose content contains parentheses before the trailing
+// (hash) must still yield the real hash, not the content's own text.
+func TestOpenTaskHashesIgnoresContentThatLooksLikeAMarker(t *testing.T) {
+	list := "- 09:12 ・ use [ ] for checkboxes (aaaa1111)\n" +
+		"- 09:30 [ ] call (urgent) client (bbbb2222)\n"
+
+	got := openTaskHashes(list)
+	if len(got) != 1 || got[0] != "bbbb2222" {
+		t.Errorf("openTaskHashes = %+v, want exactly [bbbb2222]", got)
+	}
+}
+
 func mustExecute(t *testing.T, args ...string) string {
 	t.Helper()
 
@@ -48,7 +86,7 @@ func TestAddListFlow(t *testing.T) {
 	mustExecute(t, "add", "shrimp memo")
 
 	out := mustExecute(t, "list")
-	for _, want := range []string{"Task ->", "buy cabbage", "Memo ->", "shrimp memo"} {
+	for _, want := range []string{"[ ] buy cabbage", "・ shrimp memo"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("list output should contain %q:\n%s", want, out)
 		}
@@ -91,13 +129,7 @@ func TestEndMultipleHashes(t *testing.T) {
 	mustExecute(t, "todo", "second task")
 
 	list := mustExecute(t, "list")
-	var hashes []string
-	for _, line := range strings.Split(list, "\n") {
-		if strings.HasPrefix(line, "- [ ]") {
-			fields := strings.Fields(line)
-			hashes = append(hashes, fields[len(fields)-1])
-		}
-	}
+	hashes := openTaskHashes(list)
 	if len(hashes) != 2 {
 		t.Fatalf("hashes = %+v, want 2:\n%s", hashes, list)
 	}
@@ -158,13 +190,7 @@ func TestDiffFlow(t *testing.T) {
 	mustExecute(t, "todo", "second task")
 
 	list := mustExecute(t, "list")
-	var hashes []string
-	for _, line := range strings.Split(list, "\n") {
-		if strings.HasPrefix(line, "- [ ]") {
-			fields := strings.Fields(line)
-			hashes = append(hashes, fields[len(fields)-1])
-		}
-	}
+	hashes := openTaskHashes(list)
 	if len(hashes) != 2 {
 		t.Fatalf("hashes = %+v, want 2:\n%s", hashes, list)
 	}
