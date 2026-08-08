@@ -35,11 +35,11 @@ func openTaskHashes(list string) []string {
 		if len(line) <= markerOffset || !strings.HasPrefix(line[markerOffset:], "[ ]") {
 			continue
 		}
-		open, close := strings.LastIndex(line, "("), strings.LastIndex(line, ")")
-		if open == -1 || close == -1 || close < open {
+		openParen, closeParen := strings.LastIndex(line, "("), strings.LastIndex(line, ")")
+		if openParen == -1 || closeParen == -1 || closeParen < openParen {
 			continue
 		}
-		hashes = append(hashes, line[open+1:close])
+		hashes = append(hashes, line[openParen+1:closeParen])
 	}
 	return hashes
 }

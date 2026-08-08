@@ -78,6 +78,7 @@ func (i Item) IsStarted() bool {
 // open, started, or closed.
 type Status int
 
+// The Status values, in precedence order from lowest to highest.
 const (
 	StatusMemo Status = iota
 	StatusOpen
