@@ -70,6 +70,15 @@ func TestFileStat(t *testing.T) {
 	}
 }
 
+func TestCarried(t *testing.T) {
+	var buf strings.Builder
+	Carried(&buf, 2, "2026-07-24")
+	out := buf.String()
+	if !strings.Contains(out, "Carried 2 items from 2026-07-24 (that day is now frozen).") {
+		t.Errorf("Carried output = %q", out)
+	}
+}
+
 func TestAdded(t *testing.T) {
 	var buf strings.Builder
 	Added(&buf, model.Item{Hash: "1ed29de4", Content: "review PR #123", CreatedAt: "2026-07-05T08:43:04.971Z", Tags: []string{"cli"}})

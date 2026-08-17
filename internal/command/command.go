@@ -34,7 +34,7 @@ type AddOptions struct {
 
 // Add appends a memo to today's log.
 func Add(w io.Writer, dir, content string, opts AddOptions) error {
-	file, err := logfile.Get(dir, "")
+	file, err := ensureToday(w, dir)
 	if err != nil {
 		return err
 	}
@@ -71,6 +71,80 @@ func persistItem(w io.Writer, dir string, file *logfile.LogFile, item model.Item
 	return nil
 }
 
+// ensureToday returns today's log file, running the automatic carry
+// engine first if today has not been written to yet. Carry copies
+// every unfinished TODO on the most recent existing log day before
+// today forward into today's (about to be created) log with fresh
+// hashes, then freezes that source day so it is never carried again.
+// A day that is already frozen, or no prior day at all, leaves today
+// as a plain empty log, same as before Phase C. Once today's file
+// exists, every later call within the same day just returns it as-is:
+// the file's existence is itself the one-carry-per-day guarantee, so
+// this never re-runs carry.
+func ensureToday(w io.Writer, dir string) (*logfile.LogFile, error) {
+	if today, err := logfile.Stat(dir, ""); err == nil {
+		return today, nil
+	} else if !errors.Is(err, logfile.ErrNotFound) {
+		return nil, err
+	}
+
+	body := model.NewLog()
+	carried, sourceDate, err := carryFromPreviousDay(dir)
+	if err != nil {
+		return nil, err
+	}
+	if len(carried) > 0 {
+		body.Items = carried
+		view.Carried(w, len(carried), sourceDate)
+	}
+
+	if err := logfile.Update(dir, "", body); err != nil {
+		return nil, err
+	}
+	return logfile.Get(dir, "")
+}
+
+// carryFromPreviousDay finds the most recent existing log day strictly
+// before today, copies its unfinished TODOs forward, and freezes that
+// day so it becomes permanently read-only. It is a no-op (nil items,
+// empty sourceDate) when no such day exists, or that day is already
+// frozen (already carried from).
+func carryFromPreviousDay(dir string) (carried []model.Item, sourceDate string, err error) {
+	refs, err := logfile.List(dir)
+	if err != nil {
+		return nil, "", err
+	}
+
+	today := model.Today()
+	var source *logfile.Ref
+	for i := range refs {
+		if refs[i].Name >= today {
+			break // refs is sorted ascending, so nothing further back stays before today.
+		}
+		source = &refs[i]
+	}
+	if source == nil {
+		return nil, "", nil
+	}
+
+	file, err := logfile.Stat(dir, source.Name)
+	if err != nil {
+		return nil, "", err
+	}
+	if file.Body.Freezed {
+		return nil, "", nil
+	}
+
+	carried = log.CarryForward(file.Body.Items, source.Name)
+
+	file.Body.Freezed = true
+	if err := logfile.Update(dir, source.Name, file.Body); err != nil {
+		return nil, "", err
+	}
+
+	return carried, source.Name, nil
+}
+
 // TodoOptions controls the todo command behavior.
 type TodoOptions struct {
 	Start bool     // mark the task as started right away
@@ -79,7 +153,7 @@ type TodoOptions struct {
 
 // Todo appends a TODO item (task) to today's log.
 func Todo(w io.Writer, dir, content string, opts TodoOptions) error {
-	file, err := logfile.Get(dir, "")
+	file, err := ensureToday(w, dir)
 	if err != nil {
 		return err
 	}
@@ -105,7 +179,7 @@ func Todo(w io.Writer, dir, content string, opts TodoOptions) error {
 // Tag adds tags to (or removes them from, when remove is true) the
 // item matching hash in today's log, then refreshes the index.
 func Tag(w io.Writer, dir, hash string, tags []string, remove bool) error {
-	file, err := logfile.Get(dir, "")
+	file, err := ensureToday(w, dir)
 	if err != nil {
 		return err
 	}
@@ -223,7 +297,7 @@ func elapsedBetween(a, b model.Item) (time.Duration, error) {
 
 // Start marks the task matching hash in today's log as started.
 func Start(w io.Writer, dir, hash string) error {
-	file, err := logfile.Get(dir, "")
+	file, err := ensureToday(w, dir)
 	if err != nil {
 		return err
 	}
@@ -247,7 +321,7 @@ func Start(w io.Writer, dir, hash string) error {
 // nothing about two concurrent sava processes racing on the same
 // file — there is no file locking anywhere in this codebase).
 func End(w io.Writer, dir string, hashes []string) error {
-	file, err := logfile.Get(dir, "")
+	file, err := ensureToday(w, dir)
 	if err != nil {
 		return err
 	}
@@ -323,11 +397,18 @@ func Del(w io.Writer, dir, ref string, deep bool) error {
 	}
 }
 
-// deleteOn removes the item matching hash from the log for date.
+// deleteOn removes the item matching hash from the log for date. date
+// may be any past day, not just today (see Del), so unlike the other
+// write commands this must check Freezed itself: logfile.Update no
+// longer guards against writing to a frozen day, and a carried-from
+// day being permanently read-only is the whole point of freezing it.
 func deleteOn(w io.Writer, dir, date, hash string) error {
 	file, err := logfile.Stat(dir, date)
 	if err != nil {
 		return err
+	}
+	if file.Body.Freezed {
+		return fmt.Errorf("%s: %w", date, logfile.ErrFreezed)
 	}
 
 	item, err := log.Delete(&file.Body, hash)
