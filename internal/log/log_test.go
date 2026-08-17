@@ -45,11 +45,43 @@ func TestAdd(t *testing.T) {
 	}
 }
 
-func TestAddToFreezedLog(t *testing.T) {
-	l := newTestLog()
-	l.Freezed = true
-	if _, err := Add(&l, "content", true); !errors.Is(err, ErrFreezed) {
-		t.Errorf("err = %v, want ErrFreezed", err)
+func TestCarryForward(t *testing.T) {
+	tagged := newTestLog()
+	tagged.Items[0].Tags = []string{"cli"} // task-open
+
+	carried := CarryForward(tagged.Items, "2026-07-05")
+
+	if len(carried) != 1 {
+		t.Fatalf("carried = %+v, want exactly 1 (the open task; memo and done task excluded)", carried)
+	}
+
+	item := carried[0]
+	if item.Content != "open task" {
+		t.Errorf("Content = %q, want %q", item.Content, "open task")
+	}
+	if item.Hash == "task-open" {
+		t.Errorf("carried copy should get a fresh hash, not reuse the source hash")
+	}
+	if item.CarriedFrom == nil || *item.CarriedFrom != "2026-07-05:task-open" {
+		t.Errorf("CarriedFrom = %v, want %q", item.CarriedFrom, "2026-07-05:task-open")
+	}
+	if item.IsStarted() {
+		t.Errorf("carried copy should not inherit StartedAt: %+v", item)
+	}
+	if item.IsClosed() {
+		t.Errorf("carried copy should start open, not closed: %+v", item)
+	}
+	if len(item.Tags) != 1 || item.Tags[0] != "cli" {
+		t.Errorf("Tags = %+v, want carried over unchanged", item.Tags)
+	}
+	if item.CreatedAt == "2026-07-05T02:00:00.000Z" {
+		t.Errorf("carried copy should get a fresh CreatedAt, not the source's")
+	}
+}
+
+func TestCarryForwardEmpty(t *testing.T) {
+	if got := CarryForward(nil, "2026-07-05"); got != nil {
+		t.Errorf("CarryForward(nil, ...) = %+v, want nil", got)
 	}
 }
 

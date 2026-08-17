@@ -20,7 +20,11 @@ const (
 )
 
 var (
-	// ErrFreezed is returned when attempting to update a frozen log file.
+	// ErrFreezed marks a frozen-log error. Update does not check
+	// Body.Freezed itself (a frozen body must still be writable, since
+	// that is how carry persists the freeze in the first place);
+	// callers that must not write to an already-frozen day (e.g. del)
+	// check LogFile.Body.Freezed themselves and wrap this error.
 	ErrFreezed = errors.New("this log file is freezed, no updates")
 	// ErrNotFound is returned by Stat when the day has no log file.
 	ErrNotFound = errors.New("log file not found")
@@ -114,12 +118,10 @@ func Get(dir, day string) (*LogFile, error) {
 	return &LogFile{Path: pathFor(dir, name), Name: name, Body: body}, nil
 }
 
-// Update writes body to the log file for day. Frozen logs are rejected.
+// Update writes body to the log file for day, including a Freezed
+// body: whether writing to an already-frozen day is allowed is a
+// caller-side policy decision (see ErrFreezed), not this function's.
 func Update(dir, day string, body model.Log) error {
-	if body.Freezed {
-		return ErrFreezed
-	}
-
 	name, err := resolveName(day)
 	if err != nil {
 		return err

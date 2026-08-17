@@ -24,13 +24,14 @@ const idBytes = 4
 // task (non-nil) from a memo (nil). StartedAt is set when work on a
 // task begins. Tags hold free-form labels on any item kind.
 type Item struct {
-	Hash      string   `json:"hash"`
-	Content   string   `json:"content"`
-	CreatedAt string   `json:"createdAt"`
-	UpdatedAt string   `json:"updatedAt"`
-	StartedAt *string  `json:"startedAt,omitempty"`
-	Closed    *bool    `json:"closed,omitempty"`
-	Tags      []string `json:"tags,omitempty"`
+	Hash        string   `json:"hash"`
+	Content     string   `json:"content"`
+	CreatedAt   string   `json:"createdAt"`
+	UpdatedAt   string   `json:"updatedAt"`
+	StartedAt   *string  `json:"startedAt,omitempty"`
+	Closed      *bool    `json:"closed,omitempty"`
+	Tags        []string `json:"tags,omitempty"`
+	CarriedFrom *string  `json:"carriedFrom,omitempty"` // "<date>:<hash>" of the copy this one was carried from
 }
 
 // NewTaskItem creates an open task with a fresh ID and timestamps.

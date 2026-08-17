@@ -105,11 +105,23 @@ func TestFilePermissions(t *testing.T) {
 	}
 }
 
-func TestUpdateFreezedLog(t *testing.T) {
+// TestUpdateCanPersistFreezedLog guards against reintroducing a guard
+// that rejects writing a Freezed body: carry has no other way to
+// persist the freeze it just performed, so Update must accept it.
+func TestUpdateCanPersistFreezedLog(t *testing.T) {
+	dir := t.TempDir()
 	body := model.NewLog()
 	body.Freezed = true
-	if err := Update(t.TempDir(), "2026-07-05", body); !errors.Is(err, ErrFreezed) {
-		t.Errorf("err = %v, want ErrFreezed", err)
+	if err := Update(dir, "2026-07-05", body); err != nil {
+		t.Fatalf("Update should be able to persist a freezed body: %v", err)
+	}
+
+	reloaded, err := Stat(dir, "2026-07-05")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reloaded.Body.Freezed {
+		t.Errorf("reloaded body should still be freezed: %+v", reloaded.Body)
 	}
 }
 

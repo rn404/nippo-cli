@@ -11,8 +11,6 @@ import (
 )
 
 var (
-	// ErrFreezed is returned when modifying items of a frozen log.
-	ErrFreezed = errors.New("this log file is freezed, no updates")
 	// ErrNotTask is returned when finishing an item that is a memo.
 	ErrNotTask = errors.New("target item is not a task")
 	// ErrAlreadyFinished is returned when finishing a closed task.
@@ -27,10 +25,6 @@ var (
 // The item is given a fresh hash even if it happens to collide with an
 // existing item's, so hashes stay unique within the log.
 func Add(l *model.Log, content string, isTask bool) (model.Item, error) {
-	if l.Freezed {
-		return model.Item{}, ErrFreezed
-	}
-
 	var item model.Item
 	if isTask {
 		item = model.NewTaskItem(content)
@@ -59,6 +53,33 @@ func uniqueID(items []model.Item, next func() string) string {
 // can reuse the same check instead of re-scanning by hand.
 func HashExists(items []model.Item, hash string) bool {
 	return indexOf(items, hash) != -1
+}
+
+// CarryForward returns fresh copies of every unfinished task in items,
+// ready to seed a new day's log: each copy gets its own fresh hash
+// (unique among the copies), fresh CreatedAt/UpdatedAt, and content and
+// tags carried over unchanged. StartedAt and Closed are not carried
+// over, so a copy starts today as untouched, open work. CarriedFrom on
+// each copy points back to "sourceDate:<original hash>". Memos and
+// already-closed tasks are left where they are, not copied.
+func CarryForward(items []model.Item, sourceDate string) []model.Item {
+	var out []model.Item
+	for _, item := range items {
+		if !item.IsTask() || item.IsClosed() {
+			continue
+		}
+
+		clone := model.NewTaskItem(item.Content)
+		clone.Hash = uniqueID(out, model.NewID)
+		if len(item.Tags) > 0 {
+			clone.Tags = append([]string(nil), item.Tags...)
+		}
+		from := sourceDate + ":" + item.Hash
+		clone.CarriedFrom = &from
+
+		out = append(out, clone)
+	}
+	return out
 }
 
 // Delete removes the item matching hash from the log and returns it.

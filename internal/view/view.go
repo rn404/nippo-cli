@@ -46,6 +46,13 @@ func marker(status model.Status) string {
 	}
 }
 
+// Carried prints the automatic-carry notice, ahead of whatever output
+// the write command that triggered it goes on to print, so a carry
+// never happens invisibly.
+func Carried(w io.Writer, count int, sourceDate string) {
+	fmt.Fprintf(w, "Carried %d items from %s (that day is now frozen).\n", count, sourceDate)
+}
+
 // Added prints the newly created item confirmation, including its
 // hash so it can be used right away without a separate list call.
 func Added(w io.Writer, item model.Item) {

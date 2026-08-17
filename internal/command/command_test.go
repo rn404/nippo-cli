@@ -364,13 +364,19 @@ func TestListWithTagFilter(t *testing.T) {
 
 // breakIndexRebuild writes a corrupt sibling log file so that
 // index.Rebuild (which scans every daily log) fails, independently of
-// today's file.
+// today's file. It also seeds a valid, empty, more recent day so that
+// automatic carry (which also scans past log files, to find the most
+// recent one before today) lands on that instead of the broken file:
+// this helper's job is to break the index, not carry.
 func breakIndexRebuild(t *testing.T, dir string) {
 	t.Helper()
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "2000-01-01.json"), []byte("not json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := logfile.Get(dir, "2000-01-02"); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -703,4 +709,214 @@ func TestClearAll(t *testing.T) {
 
 func time2date(year, month, day int) string {
 	return fmt.Sprintf("%04d-%02d-%02d", year, month, day)
+}
+
+// TestCarryOnFirstWriteOfDay proves the core Phase C behavior: the
+// first write command of a new day copies yesterday's unfinished
+// TODOs forward with fresh hashes, freezes yesterday, and prints a
+// notice ahead of the command's own output. Closed tasks and memos
+// are not carried, and the source item itself is left untouched.
+func TestCarryOnFirstWriteOfDay(t *testing.T) {
+	dir := t.TempDir()
+	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	closed := true
+	open := false
+	writeDay(t, dir, yesterday, []model.Item{
+		{Hash: "open1111", Content: "unfinished todo", CreatedAt: "2026-01-01T02:00:00.000Z", UpdatedAt: "2026-01-01T02:00:00.000Z", Closed: &open, Tags: []string{"cli"}},
+		{Hash: "done1111", Content: "finished todo", CreatedAt: "2026-01-01T01:00:00.000Z", UpdatedAt: "2026-01-01T01:00:00.000Z", Closed: &closed},
+		{Hash: "memo1111", Content: "a memo", CreatedAt: "2026-01-01T03:00:00.000Z", UpdatedAt: "2026-01-01T03:00:00.000Z"},
+	})
+
+	var out strings.Builder
+	if err := Add(&out, dir, "today's memo", AddOptions{}); err != nil {
+		t.Fatal(err)
+	}
+
+	notice := "Carried 1 items from " + yesterday + " (that day is now frozen)."
+	if !strings.Contains(out.String(), notice) {
+		t.Errorf("carry notice = %q, want to contain %q", out.String(), notice)
+	}
+	if strings.Index(out.String(), "Carried") > strings.Index(out.String(), "Added!!") {
+		t.Errorf("carry notice should print before the command's own output: %q", out.String())
+	}
+
+	items := todayItems(t, dir)
+	if len(items) != 2 {
+		t.Fatalf("today's items = %+v, want 2 (the carried todo and the new memo)", items)
+	}
+	carried := items[0]
+	if carried.Content != "unfinished todo" {
+		t.Errorf("carried item content = %q, want %q", carried.Content, "unfinished todo")
+	}
+	if carried.Hash == "open1111" {
+		t.Errorf("carried item should get a fresh hash")
+	}
+	if carried.CarriedFrom == nil || *carried.CarriedFrom != yesterday+":open1111" {
+		t.Errorf("CarriedFrom = %v, want %q", carried.CarriedFrom, yesterday+":open1111")
+	}
+	if carried.IsStarted() || carried.IsClosed() {
+		t.Errorf("carried item should start open and untouched today: %+v", carried)
+	}
+	if len(carried.Tags) != 1 || carried.Tags[0] != "cli" {
+		t.Errorf("tags should carry over: %+v", carried.Tags)
+	}
+
+	source, err := logfile.Stat(dir, yesterday)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !source.Body.Freezed {
+		t.Errorf("source day should be frozen after carry")
+	}
+	if len(source.Body.Items) != 3 {
+		t.Fatalf("source items should be untouched: %+v", source.Body.Items)
+	}
+	for _, item := range source.Body.Items {
+		if item.Hash == "open1111" && (item.IsClosed() || item.CarriedFrom != nil) {
+			t.Errorf("the source item itself must not be rewritten by carry: %+v", item)
+		}
+	}
+}
+
+// TestCarryFreezesEvenWithNothingToCarry proves that a source day with
+// no unfinished TODOs (a memo only, here) is still frozen once it is
+// passed over as "the most recent day before today": carry marks the
+// day as visited regardless of whether there was anything to copy,
+// and prints no notice for a zero-item carry.
+func TestCarryFreezesEvenWithNothingToCarry(t *testing.T) {
+	dir := t.TempDir()
+	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	writeDay(t, dir, yesterday, []model.Item{
+		{Hash: "memo1111", Content: "just a memo", CreatedAt: "2026-01-01T00:00:00.000Z", UpdatedAt: "2026-01-01T00:00:00.000Z"},
+	})
+
+	var out strings.Builder
+	if err := Add(&out, dir, "today's memo", AddOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out.String(), "Carried") {
+		t.Errorf("no carry notice expected when nothing was carried: %q", out.String())
+	}
+	if items := todayItems(t, dir); len(items) != 1 {
+		t.Fatalf("today's items = %+v, want only the new memo", items)
+	}
+
+	source, err := logfile.Stat(dir, yesterday)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !source.Body.Freezed {
+		t.Errorf("source day should still be frozen even with nothing to carry")
+	}
+}
+
+// TestCarrySkipsAlreadyFrozenDay proves a day already frozen (already
+// carried from once) is left alone: no second carry, no notice, and
+// today starts as a plain log with nothing extra in it.
+func TestCarrySkipsAlreadyFrozenDay(t *testing.T) {
+	dir := t.TempDir()
+	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	open := false
+	writeDay(t, dir, yesterday, []model.Item{
+		{Hash: "open1111", Content: "unfinished todo", CreatedAt: "2026-01-01T00:00:00.000Z", UpdatedAt: "2026-01-01T00:00:00.000Z", Closed: &open},
+	})
+	frozen, err := logfile.Stat(dir, yesterday)
+	if err != nil {
+		t.Fatal(err)
+	}
+	frozen.Body.Freezed = true
+	if err := logfile.Update(dir, yesterday, frozen.Body); err != nil {
+		t.Fatal(err)
+	}
+
+	var out strings.Builder
+	if err := Add(&out, dir, "today's memo", AddOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out.String(), "Carried") {
+		t.Errorf("no carry should run against an already-frozen day: %q", out.String())
+	}
+	if items := todayItems(t, dir); len(items) != 1 {
+		t.Errorf("today should only have the new memo, not a carried copy: %+v", items)
+	}
+}
+
+// TestCarryFindsMostRecentDayAcrossAGap proves the source day is
+// "whichever day actually has a log file, most recently, before
+// today" rather than literally "yesterday": a multi-day gap (e.g. a
+// weekend sava was never touched) is skipped without special-casing.
+func TestCarryFindsMostRecentDayAcrossAGap(t *testing.T) {
+	dir := t.TempDir()
+	fiveDaysAgo := time.Now().AddDate(0, 0, -5).Format("2006-01-02")
+	open := false
+	writeDay(t, dir, fiveDaysAgo, []model.Item{
+		{Hash: "open1111", Content: "unfinished todo", CreatedAt: "2026-01-01T00:00:00.000Z", UpdatedAt: "2026-01-01T00:00:00.000Z", Closed: &open},
+	})
+
+	var out strings.Builder
+	if err := Add(&out, dir, "today's memo", AddOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Carried 1 items from "+fiveDaysAgo) {
+		t.Errorf("carry should reach across the gap to the most recent existing day: %q", out.String())
+	}
+}
+
+// TestCarryRunsOnlyOncePerDay proves the one-carry-per-day guarantee:
+// once today's file exists, a second write command the same day must
+// not re-carry or re-freeze.
+func TestCarryRunsOnlyOncePerDay(t *testing.T) {
+	dir := t.TempDir()
+	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	open := false
+	writeDay(t, dir, yesterday, []model.Item{
+		{Hash: "open1111", Content: "unfinished todo", CreatedAt: "2026-01-01T00:00:00.000Z", UpdatedAt: "2026-01-01T00:00:00.000Z", Closed: &open},
+	})
+
+	if err := Add(io.Discard, dir, "first write", AddOptions{}); err != nil {
+		t.Fatal(err)
+	}
+
+	var out strings.Builder
+	if err := Add(&out, dir, "second write", AddOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out.String(), "Carried") {
+		t.Errorf("carry should not run again on the same day: %q", out.String())
+	}
+
+	if items := todayItems(t, dir); len(items) != 3 {
+		t.Fatalf("items = %+v, want 3 (1 carried + 2 memos, no duplicate carry)", items)
+	}
+}
+
+// TestDelFailsOnFrozenDay proves del's own explicit freeze check:
+// since logfile.Update no longer guards frozen writes internally, del
+// must reject deleting from a day that carry has already frozen.
+func TestDelFailsOnFrozenDay(t *testing.T) {
+	dir := t.TempDir()
+	day := time.Now().AddDate(0, 0, -5).Format("2006-01-02")
+	writeDay(t, dir, day, []model.Item{
+		{Hash: "aaaa1111", Content: "frozen memo", CreatedAt: "2026-01-01T00:00:00.000Z", UpdatedAt: "2026-01-01T00:00:00.000Z"},
+	})
+	file, err := logfile.Stat(dir, day)
+	if err != nil {
+		t.Fatal(err)
+	}
+	file.Body.Freezed = true
+	if err := logfile.Update(dir, day, file.Body); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Del(io.Discard, dir, day+":aaaa1111", false); !errors.Is(err, logfile.ErrFreezed) {
+		t.Errorf("err = %v, want to wrap logfile.ErrFreezed", err)
+	}
+
+	reloaded, err := logfile.Stat(dir, day)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(reloaded.Body.Items) != 1 {
+		t.Errorf("frozen day's item should survive the rejected delete: %+v", reloaded.Body.Items)
+	}
 }

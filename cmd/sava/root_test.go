@@ -3,7 +3,9 @@ package main
 import (
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/rn404/nippo-cli/internal/logfile"
 	"github.com/rn404/nippo-cli/internal/model"
 )
 
@@ -228,6 +230,43 @@ func TestClearAllWithYes(t *testing.T) {
 	out := mustExecute(t, "list", "-a")
 	if strings.Contains(out, "-Task") || strings.Count(out, "\n- ") > 0 {
 		t.Errorf("no log files should remain after clear -a --yes:\n%s", out)
+	}
+}
+
+// TestCarryFlow exercises Phase C end-to-end through the CLI: an
+// unfinished TODO left over from a previous day should reappear in
+// today's list under a new hash, with that source day now frozen,
+// the moment the first command of a new day is run.
+func TestCarryFlow(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	dir := logfile.Dir()
+
+	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	file, err := logfile.Get(dir, yesterday)
+	if err != nil {
+		t.Fatal(err)
+	}
+	open := false
+	file.Body.Items = []model.Item{
+		{Hash: "open1111", Content: "unfinished todo", CreatedAt: "2026-01-01T00:00:00.000Z", UpdatedAt: "2026-01-01T00:00:00.000Z", Closed: &open},
+	}
+	if err := logfile.Update(dir, yesterday, file.Body); err != nil {
+		t.Fatal(err)
+	}
+
+	out := mustExecute(t, "add", "today's memo")
+	if !strings.Contains(out, "Carried 1 items from "+yesterday+" (that day is now frozen).") {
+		t.Errorf("carry notice missing from CLI output:\n%s", out)
+	}
+
+	list := mustExecute(t, "list")
+	if !strings.Contains(list, "[ ] unfinished todo") {
+		t.Errorf("carried todo should appear in today's list:\n%s", list)
+	}
+
+	stat := mustExecute(t, "list", yesterday, "-s")
+	if !strings.Contains(stat, yesterday+"*") {
+		t.Errorf("yesterday should show as frozen in stats:\n%s", stat)
 	}
 }
 
