@@ -15,12 +15,26 @@ https://gist.github.com/rn404/decf010fc48d7d8688116af0f4427b44
 
 ## Install
 
+[Releases](https://github.com/rn404/nippo-cli/releases/latest) からビルド済み
+バイナリを取得する（Go 不要）. 対応プラットフォーム: `darwin_amd64` /
+`darwin_arm64` / `linux_amd64` / `linux_arm64`.
+
+```
+# 例: macOS (Apple Silicon)。他プラットフォームでは darwin_arm64 を置き換える
+gh release download --repo rn404/nippo-cli --pattern "*_darwin_arm64.tar.gz" --pattern "checksums.txt"
+grep darwin_arm64.tar.gz checksums.txt | shasum -a 256 -c -
+tar -xzf sava_*_darwin_arm64.tar.gz
+mv sava_*_darwin_arm64/sava ~/.local/bin/sava
+```
+
+`gh` が無い場合は [Releases](https://github.com/rn404/nippo-cli/releases/latest)
+から手動で取得する.
+
+ソースからビルドする場合:
+
 ```
 go install github.com/rn404/nippo-cli/cmd/sava@latest
 ```
-
-ビルド済みバイナリ (macOS / Linux) は
-[Releases](https://github.com/rn404/nippo-cli/releases) からも取得できます.
 
 ## Release lifecycle
 
