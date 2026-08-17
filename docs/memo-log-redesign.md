@@ -246,7 +246,7 @@ Added!!
       `start`・`end`（独立コマンドのまま、複数 hash 対応で #10 を吸収）/
       追加・削除時の結果出力（#25）
 * [x] Phase B: `list` タイムライン化
-* [ ] Phase C: 自動 carry（トリガー・対象日探索・新 hash コピー・
+* [x] Phase C: 自動 carry（トリガー・対象日探索・新 hash コピー・
       `carriedFrom`・`logfile.Update` の凍結ガード撤去と呼び出し側での
       凍結チェック）→ #8 解決、#12 再評価
 
