@@ -136,7 +136,7 @@ func splitDiffArgs(args []string) (string, string, error) {
 func newListCommand() *cobra.Command {
 	opts := command.ListOptions{}
 	cmd := &cobra.Command{
-		Use:   "list [date]",
+		Use:   "list [date|yesterday]",
 		Short: "list all logs.",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

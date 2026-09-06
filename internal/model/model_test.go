@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestFormatSampleRoundTrip pins the storage format: the sample under
@@ -131,6 +132,26 @@ func TestParseDateStrict(t *testing.T) {
 	for _, value := range invalid {
 		if IsDateString(value) {
 			t.Errorf("IsDateString(%q) = true, want false", value)
+		}
+	}
+}
+
+func TestResolveRelativeDate(t *testing.T) {
+	yesterday := time.Now().AddDate(0, 0, -1).Format(DateLayout)
+
+	cases := map[string]string{
+		"today":      Today(),
+		"Today":      Today(),
+		"TODAY":      Today(),
+		"yesterday":  yesterday,
+		"Yesterday":  yesterday,
+		"2026-07-05": "2026-07-05", // an already well-formed date passes through
+		"":           "",           // callers elsewhere treat "" as today
+		"tomorrow":   "tomorrow",   // unsupported keyword passes through unchanged
+	}
+	for input, want := range cases {
+		if got := ResolveRelativeDate(input); got != want {
+			t.Errorf("ResolveRelativeDate(%q) = %q, want %q", input, got, want)
 		}
 	}
 }

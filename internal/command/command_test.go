@@ -566,6 +566,36 @@ func TestListToday(t *testing.T) {
 	}
 }
 
+// TestListYesterday proves "yesterday" resolves to an actual date
+// before reaching logfile.Stat, both for the plain timeline and for
+// --stat, and that it's case-insensitive.
+func TestListYesterday(t *testing.T) {
+	dir := t.TempDir()
+	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	writeDay(t, dir, yesterday, []model.Item{
+		{Hash: "aaaa1111", Content: "yesterday's memo", CreatedAt: "2026-01-01T00:00:00.000Z", UpdatedAt: "2026-01-01T00:00:00.000Z"},
+	})
+
+	for _, keyword := range []string{"yesterday", "Yesterday", "YESTERDAY"} {
+		var out strings.Builder
+		if err := List(&out, strings.NewReader(""), dir, ListOptions{Date: keyword}); err != nil {
+			t.Fatal(err)
+		}
+		want := "Log for " + yesterday + " are..."
+		if !strings.Contains(out.String(), want) || !strings.Contains(out.String(), "yesterday's memo") {
+			t.Errorf("List with Date=%q output = %q, want to contain %q and the item", keyword, out.String(), want)
+		}
+	}
+
+	var stat strings.Builder
+	if err := List(&stat, strings.NewReader(""), dir, ListOptions{Date: "yesterday", Stat: true}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stat.String(), "Log stats for "+yesterday+" are...") {
+		t.Errorf("List --stat with Date=yesterday output = %q", stat.String())
+	}
+}
+
 func TestListEmptyAndInvalidDate(t *testing.T) {
 	dir := t.TempDir()
 

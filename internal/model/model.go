@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -165,4 +166,20 @@ func IsDateString(value string) bool {
 // daily log file naming.
 func Today() string {
 	return time.Now().Format(DateLayout)
+}
+
+// ResolveRelativeDate translates a small set of relative date keywords
+// ("today", "yesterday", case-insensitive) into a yyyy-MM-dd string.
+// Any other value — including an already well-formed date, or an
+// empty string, which callers elsewhere already treat as "today" — is
+// returned unchanged.
+func ResolveRelativeDate(value string) string {
+	switch strings.ToLower(value) {
+	case "today":
+		return Today()
+	case "yesterday":
+		return time.Now().AddDate(0, 0, -1).Format(DateLayout)
+	default:
+		return value
+	}
 }

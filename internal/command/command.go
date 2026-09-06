@@ -495,16 +495,18 @@ func List(w io.Writer, r io.Reader, dir string, opts ListOptions) error {
 }
 
 func listOneDay(w io.Writer, dir string, opts ListOptions) error {
-	file, err := logfile.Stat(dir, opts.Date)
+	date := model.ResolveRelativeDate(opts.Date)
+
+	file, err := logfile.Stat(dir, date)
 	if err != nil && !errors.Is(err, logfile.ErrNotFound) {
 		return err
 	}
 
 	if opts.Stat {
-		if opts.Date == "" {
+		if date == "" {
 			view.Header(w, "Today's log stats are...")
 		} else {
-			view.Header(w, fmt.Sprintf("Log stats for %s are...", opts.Date))
+			view.Header(w, fmt.Sprintf("Log stats for %s are...", date))
 		}
 		if file == nil {
 			fmt.Fprintln(w, "There is no body...")
@@ -514,10 +516,10 @@ func listOneDay(w io.Writer, dir string, opts ListOptions) error {
 		return nil
 	}
 
-	if opts.Date == "" {
+	if date == "" {
 		view.Header(w, "Today's logs are...")
 	} else {
-		view.Header(w, fmt.Sprintf("Log for %s are...", opts.Date))
+		view.Header(w, fmt.Sprintf("Log for %s are...", date))
 	}
 	if file == nil {
 		fmt.Fprintln(w, "There is no body...")

@@ -93,6 +93,7 @@ sava list -t <tag>,<tag> --or
 
 # List items of a specific day / all log files / summaries
 sava list <yyyy-MM-dd>
+sava list yesterday
 sava list -a
 sava list -s
 sava list -a -s

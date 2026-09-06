@@ -270,6 +270,30 @@ func TestCarryFlow(t *testing.T) {
 	}
 }
 
+// TestListYesterdayKeyword proves "yesterday" works as a literal date
+// argument on the actual CLI, not just at the command-layer.
+func TestListYesterdayKeyword(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	dir := logfile.Dir()
+
+	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	file, err := logfile.Get(dir, yesterday)
+	if err != nil {
+		t.Fatal(err)
+	}
+	file.Body.Items = []model.Item{
+		{Hash: "aaaa1111", Content: "yesterday's memo", CreatedAt: "2026-01-01T00:00:00.000Z", UpdatedAt: "2026-01-01T00:00:00.000Z"},
+	}
+	if err := logfile.Update(dir, yesterday, file.Body); err != nil {
+		t.Fatal(err)
+	}
+
+	out := mustExecute(t, "list", "yesterday")
+	if !strings.Contains(out, "Log for "+yesterday+" are...") || !strings.Contains(out, "yesterday's memo") {
+		t.Errorf("list yesterday output:\n%s", out)
+	}
+}
+
 func TestInvalidDateFails(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
