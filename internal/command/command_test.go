@@ -566,6 +566,204 @@ func TestListToday(t *testing.T) {
 	}
 }
 
+// TestListToday_HidesClosedTasksByDefault proves the default (no
+// --full) daily view now hides closed tasks per requirements 1.1 and
+// 1.2: open tasks and memos still show, only closed tasks are
+// dropped.
+func TestListToday_HidesClosedTasksByDefault(t *testing.T) {
+	dir := t.TempDir()
+	closed, open := true, false
+	writeDay(t, dir, "", []model.Item{
+		{Hash: "closed11", Content: "closed task", CreatedAt: "2026-01-01T01:00:00.000Z", UpdatedAt: "2026-01-01T01:00:00.000Z", Closed: &closed},
+		{Hash: "open1111", Content: "open task", CreatedAt: "2026-01-01T02:00:00.000Z", UpdatedAt: "2026-01-01T02:00:00.000Z", Closed: &open},
+		{Hash: "memo1111", Content: "a memo", CreatedAt: "2026-01-01T03:00:00.000Z", UpdatedAt: "2026-01-01T03:00:00.000Z"},
+	})
+
+	var out strings.Builder
+	if err := List(&out, strings.NewReader(""), dir, ListOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	if strings.Contains(got, "closed task") {
+		t.Errorf("default list output should hide closed tasks: %q", got)
+	}
+	if !strings.Contains(got, "open task") || !strings.Contains(got, "a memo") {
+		t.Errorf("default list output should keep open tasks and memos: %q", got)
+	}
+}
+
+// TestListToday_AllClosedShowsEmptyMessage proves requirement 1.3: a
+// day whose only items are closed tasks renders the same "no body"
+// message as a day with nothing at all, once those closed tasks are
+// hidden by default.
+func TestListToday_AllClosedShowsEmptyMessage(t *testing.T) {
+	dir := t.TempDir()
+	closed := true
+	writeDay(t, dir, "", []model.Item{
+		{Hash: "closed11", Content: "closed task", CreatedAt: "2026-01-01T01:00:00.000Z", UpdatedAt: "2026-01-01T01:00:00.000Z", Closed: &closed},
+	})
+
+	var out strings.Builder
+	if err := List(&out, strings.NewReader(""), dir, ListOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "There is no body...") {
+		t.Errorf("all-closed default list output = %q, want the empty message", out.String())
+	}
+}
+
+// TestListToday_FullShowsClosedTasksInOrder proves requirements 2.1,
+// 2.2, and 4.1: --full includes closed tasks alongside everything
+// else, ordered closed -> open -> memo.
+func TestListToday_FullShowsClosedTasksInOrder(t *testing.T) {
+	dir := t.TempDir()
+	closed, open := true, false
+	writeDay(t, dir, "", []model.Item{
+		{Hash: "open1111", Content: "open task", CreatedAt: "2026-01-01T01:00:00.000Z", UpdatedAt: "2026-01-01T01:00:00.000Z", Closed: &open},
+		{Hash: "memo1111", Content: "a memo", CreatedAt: "2026-01-01T02:00:00.000Z", UpdatedAt: "2026-01-01T02:00:00.000Z"},
+		{Hash: "closed11", Content: "closed task", CreatedAt: "2026-01-01T03:00:00.000Z", UpdatedAt: "2026-01-01T03:00:00.000Z", Closed: &closed},
+	})
+
+	var out strings.Builder
+	if err := List(&out, strings.NewReader(""), dir, ListOptions{Full: true}); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	for _, want := range []string{"closed task", "open task", "a memo"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("--full output should contain %q:\n%s", want, got)
+		}
+	}
+	iClosed, iOpen, iMemo := strings.Index(got, "closed task"), strings.Index(got, "open task"), strings.Index(got, "a memo")
+	if !(iClosed < iOpen && iOpen < iMemo) {
+		t.Errorf("--full output order should be closed -> open -> memo, got:\n%s", got)
+	}
+}
+
+// TestListToday_TaskOnlyExcludesMemos proves requirements 3.1 and
+// 3.2: --task drops memos, and without --full it still hides closed
+// tasks too.
+func TestListToday_TaskOnlyExcludesMemos(t *testing.T) {
+	dir := t.TempDir()
+	closed, open := true, false
+	writeDay(t, dir, "", []model.Item{
+		{Hash: "closed11", Content: "closed task", CreatedAt: "2026-01-01T01:00:00.000Z", UpdatedAt: "2026-01-01T01:00:00.000Z", Closed: &closed},
+		{Hash: "open1111", Content: "open task", CreatedAt: "2026-01-01T02:00:00.000Z", UpdatedAt: "2026-01-01T02:00:00.000Z", Closed: &open},
+		{Hash: "memo1111", Content: "a memo", CreatedAt: "2026-01-01T03:00:00.000Z", UpdatedAt: "2026-01-01T03:00:00.000Z"},
+	})
+
+	var out strings.Builder
+	if err := List(&out, strings.NewReader(""), dir, ListOptions{TasksOnly: true}); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	if strings.Contains(got, "a memo") {
+		t.Errorf("--task output should exclude memos: %q", got)
+	}
+	if strings.Contains(got, "closed task") {
+		t.Errorf("--task without --full should still hide closed tasks: %q", got)
+	}
+	if !strings.Contains(got, "open task") {
+		t.Errorf("--task output should keep open tasks: %q", got)
+	}
+}
+
+// TestListToday_TaskAndFullShowsAllTasksNoMemos proves requirement
+// 3.3: --task --full shows both closed and open tasks but still no
+// memos.
+func TestListToday_TaskAndFullShowsAllTasksNoMemos(t *testing.T) {
+	dir := t.TempDir()
+	closed, open := true, false
+	writeDay(t, dir, "", []model.Item{
+		{Hash: "closed11", Content: "closed task", CreatedAt: "2026-01-01T01:00:00.000Z", UpdatedAt: "2026-01-01T01:00:00.000Z", Closed: &closed},
+		{Hash: "open1111", Content: "open task", CreatedAt: "2026-01-01T02:00:00.000Z", UpdatedAt: "2026-01-01T02:00:00.000Z", Closed: &open},
+		{Hash: "memo1111", Content: "a memo", CreatedAt: "2026-01-01T03:00:00.000Z", UpdatedAt: "2026-01-01T03:00:00.000Z"},
+	})
+
+	var out strings.Builder
+	if err := List(&out, strings.NewReader(""), dir, ListOptions{TasksOnly: true, Full: true}); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	if !strings.Contains(got, "closed task") || !strings.Contains(got, "open task") {
+		t.Errorf("--task --full output should contain both tasks: %q", got)
+	}
+	if strings.Contains(got, "a memo") {
+		t.Errorf("--task --full output should still exclude memos: %q", got)
+	}
+}
+
+// TestListToday_TagFilterCombinesWithVisibility proves requirement
+// 5.1: --tag applies on top of the visibility rules as an AND
+// condition, and the closed -> open -> memo grouping order survives
+// the filter.
+func TestListToday_TagFilterCombinesWithVisibility(t *testing.T) {
+	dir := t.TempDir()
+	closed, open := true, false
+	writeDay(t, dir, "", []model.Item{
+		{Hash: "closed11", Content: "closed tagged", CreatedAt: "2026-01-01T01:00:00.000Z", UpdatedAt: "2026-01-01T01:00:00.000Z", Closed: &closed, Tags: []string{"cabbage"}},
+		{Hash: "closed22", Content: "closed untagged", CreatedAt: "2026-01-01T01:30:00.000Z", UpdatedAt: "2026-01-01T01:30:00.000Z", Closed: &closed},
+		{Hash: "open1111", Content: "open tagged", CreatedAt: "2026-01-01T02:00:00.000Z", UpdatedAt: "2026-01-01T02:00:00.000Z", Closed: &open, Tags: []string{"cabbage"}},
+		{Hash: "memo1111", Content: "memo tagged", CreatedAt: "2026-01-01T03:00:00.000Z", UpdatedAt: "2026-01-01T03:00:00.000Z", Tags: []string{"cabbage"}},
+		{Hash: "memo2222", Content: "memo untagged", CreatedAt: "2026-01-01T03:30:00.000Z", UpdatedAt: "2026-01-01T03:30:00.000Z"},
+	})
+
+	var out strings.Builder
+	if err := List(&out, strings.NewReader(""), dir, ListOptions{Full: true, Tags: []string{"cabbage"}}); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	for _, want := range []string{"closed tagged", "open tagged", "memo tagged"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("tag-filtered --full output should contain %q:\n%s", want, got)
+		}
+	}
+	for _, unwanted := range []string{"closed untagged", "memo untagged"} {
+		if strings.Contains(got, unwanted) {
+			t.Errorf("tag-filtered output should exclude %q:\n%s", unwanted, got)
+		}
+	}
+	iClosed, iOpen, iMemo := strings.Index(got, "closed tagged"), strings.Index(got, "open tagged"), strings.Index(got, "memo tagged")
+	if !(iClosed < iOpen && iOpen < iMemo) {
+		t.Errorf("tag-filtered output should preserve closed -> open -> memo order, got:\n%s", got)
+	}
+}
+
+// TestListStatAndAll_UnaffectedByNewFlags proves requirements 5.2 and
+// 5.3: --stat and --all (without --stat) ignore Full/TasksOnly
+// entirely, so passing them alongside produces byte-identical output
+// to not passing them.
+func TestListStatAndAll_UnaffectedByNewFlags(t *testing.T) {
+	dir := t.TempDir()
+	closed := true
+	writeDay(t, dir, "", []model.Item{
+		{Hash: "closed11", Content: "closed task", CreatedAt: "2026-01-01T01:00:00.000Z", UpdatedAt: "2026-01-01T01:00:00.000Z", Closed: &closed},
+	})
+
+	var withoutFlags, withFlags strings.Builder
+	if err := List(&withoutFlags, strings.NewReader(""), dir, ListOptions{Stat: true}); err != nil {
+		t.Fatal(err)
+	}
+	if err := List(&withFlags, strings.NewReader(""), dir, ListOptions{Stat: true, Full: true, TasksOnly: true}); err != nil {
+		t.Fatal(err)
+	}
+	if withoutFlags.String() != withFlags.String() {
+		t.Errorf("--stat output should be unaffected by Full/TasksOnly:\nwithout = %q\nwith = %q", withoutFlags.String(), withFlags.String())
+	}
+
+	withoutFlags.Reset()
+	withFlags.Reset()
+	if err := List(&withoutFlags, strings.NewReader(""), dir, ListOptions{All: true}); err != nil {
+		t.Fatal(err)
+	}
+	if err := List(&withFlags, strings.NewReader(""), dir, ListOptions{All: true, Full: true, TasksOnly: true}); err != nil {
+		t.Fatal(err)
+	}
+	if withoutFlags.String() != withFlags.String() {
+		t.Errorf("--all output should be unaffected by Full/TasksOnly:\nwithout = %q\nwith = %q", withoutFlags.String(), withFlags.String())
+	}
+}
+
 // TestListYesterday proves "yesterday" resolves to an actual date
 // before reaching logfile.Stat, both for the plain timeline and for
 // --stat, and that it's case-insensitive.

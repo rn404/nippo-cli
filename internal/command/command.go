@@ -443,12 +443,14 @@ func withinStoragePeriod(refs []logfile.Ref) []logfile.Ref {
 
 // ListOptions controls the list command behavior.
 type ListOptions struct {
-	Date string // yyyy-MM-dd; empty means today
-	All  bool
-	Stat bool
-	Yes  bool     // skip confirmation prompts
-	Tags []string // show only items carrying the tags
-	Or   bool     // match any tag instead of all
+	Date      string // yyyy-MM-dd; empty means today
+	All       bool
+	Stat      bool
+	Yes       bool     // skip confirmation prompts
+	Tags      []string // show only items carrying the tags
+	Or        bool     // match any tag instead of all
+	Full      bool     // include closed tasks in the daily (non-stat) view
+	TasksOnly bool     // exclude memos from the daily (non-stat) view
 }
 
 // List shows the items of one day, or summaries across all log files.
@@ -526,7 +528,15 @@ func listOneDay(w io.Writer, dir string, opts ListOptions) error {
 		return nil
 	}
 
-	items := log.Timeline(file.Body)
+	closedTasks, openTasks, memos := log.SplitByStatus(file.Body)
+	var items []model.Item
+	if opts.Full {
+		items = append(items, closedTasks...)
+	}
+	items = append(items, openTasks...)
+	if !opts.TasksOnly {
+		items = append(items, memos...)
+	}
 	if len(opts.Tags) > 0 {
 		items = log.FilterByTags(items, opts.Tags, opts.Or)
 	}
