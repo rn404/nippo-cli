@@ -279,6 +279,28 @@ func Split(l model.Log) (tasks, memos []model.Item) {
 	return tasks, memos
 }
 
+// SplitByStatus separates the log items into three status groups —
+// closed tasks, non-closed tasks (open or started), and memos — each
+// sorted by creation time in ascending order.
+func SplitByStatus(l model.Log) (closedTasks, openTasks, memos []model.Item) {
+	for _, item := range l.Items {
+		switch {
+		case item.IsClosed():
+			closedTasks = append(closedTasks, item)
+		case item.IsTask():
+			openTasks = append(openTasks, item)
+		default:
+			memos = append(memos, item)
+		}
+	}
+
+	sort.SliceStable(closedTasks, byCreatedAt(closedTasks))
+	sort.SliceStable(openTasks, byCreatedAt(openTasks))
+	sort.SliceStable(memos, byCreatedAt(memos))
+
+	return closedTasks, openTasks, memos
+}
+
 // Timeline returns every item (tasks and memos together) sorted by
 // creation time, for a single chronological list.
 func Timeline(l model.Log) []model.Item {

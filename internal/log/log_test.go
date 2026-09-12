@@ -346,6 +346,124 @@ func TestTimeline(t *testing.T) {
 	}
 }
 
+// TestSplitByStatus_PartitionsByStatus checks that a log mixing closed,
+// open, started tasks, and a memo is classified into the right bucket
+// for each item.
+func TestSplitByStatus_PartitionsByStatus(t *testing.T) {
+	closed := true
+	open := false
+	startedAt := "2026-07-05T01:30:00.000Z"
+	l := model.Log{
+		Items: []model.Item{
+			{Hash: "task-open", Content: "open task", CreatedAt: "2026-07-05T02:00:00.000Z", Closed: &open},
+			{Hash: "task-done", Content: "done task", CreatedAt: "2026-07-05T01:00:00.000Z", Closed: &closed},
+			{Hash: "task-started", Content: "started task", CreatedAt: "2026-07-05T01:15:00.000Z", Closed: &open, StartedAt: &startedAt},
+			{Hash: "memo-1", Content: "a memo", CreatedAt: "2026-07-05T03:00:00.000Z"},
+		},
+	}
+
+	closedTasks, openTasks, memos := SplitByStatus(l)
+
+	if len(closedTasks) != 1 || closedTasks[0].Hash != "task-done" {
+		t.Errorf("closedTasks = %+v, want only task-done", closedTasks)
+	}
+	if len(openTasks) != 2 {
+		t.Fatalf("openTasks = %+v, want 2 (task-open and task-started)", openTasks)
+	}
+	gotOpenHashes := []string{openTasks[0].Hash, openTasks[1].Hash}
+	wantOpenHashes := []string{"task-started", "task-open"} // sorted by createdAt ascending
+	for i := range wantOpenHashes {
+		if gotOpenHashes[i] != wantOpenHashes[i] {
+			t.Errorf("openTasks = %+v, want order %+v", gotOpenHashes, wantOpenHashes)
+			break
+		}
+	}
+	if len(memos) != 1 || memos[0].Hash != "memo-1" {
+		t.Errorf("memos = %+v, want only memo-1", memos)
+	}
+
+	total := len(closedTasks) + len(openTasks) + len(memos)
+	if total != len(l.Items) {
+		t.Errorf("total returned items = %d, want %d", total, len(l.Items))
+	}
+
+	for _, item := range closedTasks {
+		if !item.IsClosed() {
+			t.Errorf("closedTasks contains a non-closed item: %+v", item)
+		}
+	}
+	for _, item := range openTasks {
+		if !item.IsTask() || item.IsClosed() {
+			t.Errorf("openTasks contains an item that is not an open/started task: %+v", item)
+		}
+	}
+	for _, item := range memos {
+		if item.IsTask() {
+			t.Errorf("memos contains a task: %+v", item)
+		}
+	}
+}
+
+// TestSplitByStatus_OrdersByCreatedAtAscending checks that each bucket
+// is sorted by CreatedAt ascending independently of the others.
+func TestSplitByStatus_OrdersByCreatedAtAscending(t *testing.T) {
+	closed := true
+	l := model.Log{
+		Items: []model.Item{
+			{Hash: "closed-late", Content: "closed late", CreatedAt: "2026-07-05T05:00:00.000Z", Closed: &closed},
+			{Hash: "closed-early", Content: "closed early", CreatedAt: "2026-07-05T01:00:00.000Z", Closed: &closed},
+		},
+	}
+
+	closedTasks, openTasks, memos := SplitByStatus(l)
+
+	if len(openTasks) != 0 || len(memos) != 0 {
+		t.Fatalf("openTasks = %+v, memos = %+v, want both empty", openTasks, memos)
+	}
+	if len(closedTasks) != 2 || closedTasks[0].Hash != "closed-early" || closedTasks[1].Hash != "closed-late" {
+		t.Errorf("closedTasks = %+v, want [closed-early, closed-late]", closedTasks)
+	}
+}
+
+// TestSplitByStatus_AllClosed checks a log where every item is a closed
+// task: openTasks and memos should come back empty while closedTasks
+// holds everything.
+func TestSplitByStatus_AllClosed(t *testing.T) {
+	closed := true
+	l := model.Log{
+		Items: []model.Item{
+			{Hash: "a", Content: "a", CreatedAt: "2026-07-05T02:00:00.000Z", Closed: &closed},
+			{Hash: "b", Content: "b", CreatedAt: "2026-07-05T01:00:00.000Z", Closed: &closed},
+		},
+	}
+
+	closedTasks, openTasks, memos := SplitByStatus(l)
+
+	if len(closedTasks) != 2 {
+		t.Fatalf("closedTasks = %+v, want 2", closedTasks)
+	}
+	if closedTasks[0].Hash != "b" || closedTasks[1].Hash != "a" {
+		t.Errorf("closedTasks = %+v, want sorted [b, a]", closedTasks)
+	}
+	if openTasks != nil {
+		t.Errorf("openTasks = %+v, want nil/empty", openTasks)
+	}
+	if memos != nil {
+		t.Errorf("memos = %+v, want nil/empty", memos)
+	}
+}
+
+// TestSplitByStatus_EmptyLog checks that an empty log yields three
+// empty buckets rather than panicking or returning nil-vs-empty
+// inconsistently.
+func TestSplitByStatus_EmptyLog(t *testing.T) {
+	closedTasks, openTasks, memos := SplitByStatus(model.Log{})
+
+	if len(closedTasks) != 0 || len(openTasks) != 0 || len(memos) != 0 {
+		t.Errorf("SplitByStatus(empty) = %+v, %+v, %+v, want all empty", closedTasks, openTasks, memos)
+	}
+}
+
 // TestTimelineTiesKeepInsertionOrder guards against a non-deterministic
 // tie-break: items sharing the exact same CreatedAt (possible within
 // the same millisecond) must keep their original relative order.
