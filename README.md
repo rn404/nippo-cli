@@ -84,8 +84,15 @@ sava tag --list
 sava diff <date>:<hashA>...<date>:<hashB>
 sava diff <date>:<hashA> <date>:<hashB>
 
-# List today's log items
+# List today's log items (closed tasks are hidden by default)
 sava list
+
+# Also show completed tasks (closed -> open -> memo order)
+sava list --full
+
+# Show tasks only, excluding memos (combine with --full to include closed tasks)
+sava list --task
+sava list --task --full
 
 # Filter by tags (multiple tags match all; --or matches any)
 sava list -t <tag>[,<tag>...]
