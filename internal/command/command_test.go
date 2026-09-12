@@ -635,7 +635,7 @@ func TestListToday_FullShowsClosedTasksInOrder(t *testing.T) {
 		}
 	}
 	iClosed, iOpen, iMemo := strings.Index(got, "closed task"), strings.Index(got, "open task"), strings.Index(got, "a memo")
-	if !(iClosed < iOpen && iOpen < iMemo) {
+	if iClosed >= iOpen || iOpen >= iMemo {
 		t.Errorf("--full output order should be closed -> open -> memo, got:\n%s", got)
 	}
 }
@@ -717,7 +717,7 @@ func TestListToday_FullOrdersClosedGroupByCreatedAtAscending(t *testing.T) {
 	if iFirst == -1 || iSecond == -1 {
 		t.Fatalf("--full output should contain both closed tasks:\n%s", got)
 	}
-	if !(iFirst < iSecond) {
+	if iFirst >= iSecond {
 		t.Errorf("within the closed-task group, items should be ordered by CreatedAt ascending (\"closed first\" before \"closed second\"), got:\n%s", got)
 	}
 }
@@ -799,7 +799,7 @@ func TestListToday_TagFilterCombinesWithVisibility(t *testing.T) {
 		}
 	}
 	iClosed, iOpen, iMemo := strings.Index(got, "closed tagged"), strings.Index(got, "open tagged"), strings.Index(got, "memo tagged")
-	if !(iClosed < iOpen && iOpen < iMemo) {
+	if iClosed >= iOpen || iOpen >= iMemo {
 		t.Errorf("tag-filtered output should preserve closed -> open -> memo order, got:\n%s", got)
 	}
 }
