@@ -294,6 +294,52 @@ func TestListYesterdayKeyword(t *testing.T) {
 	}
 }
 
+// TestListFullAndTaskFlags proves "--full"/"-f" and "--task" are
+// registered on the list command and bridged to the right
+// command.ListOptions fields: a closed task is hidden by default,
+// shown with --full, and a memo is excluded with --task.
+func TestListFullAndTaskFlags(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	mustExecute(t, "todo", "buy cabbage")
+	mustExecute(t, "add", "shrimp memo")
+
+	list := mustExecute(t, "list")
+	hashes := openTaskHashes(list)
+	if len(hashes) != 1 {
+		t.Fatalf("hashes = %+v, want 1:\n%s", hashes, list)
+	}
+	mustExecute(t, "end", hashes[0])
+
+	out := mustExecute(t, "list")
+	if strings.Contains(out, "buy cabbage") {
+		t.Errorf("closed task should be hidden by default:\n%s", out)
+	}
+	if !strings.Contains(out, "shrimp memo") {
+		t.Errorf("memo should still be shown by default:\n%s", out)
+	}
+
+	out = mustExecute(t, "list", "--full")
+	if !strings.Contains(out, "buy cabbage") {
+		t.Errorf("--full should include the closed task:\n%s", out)
+	}
+
+	out = mustExecute(t, "list", "-f")
+	if !strings.Contains(out, "buy cabbage") {
+		t.Errorf("-f should include the closed task:\n%s", out)
+	}
+
+	out = mustExecute(t, "list", "--task")
+	if strings.Contains(out, "shrimp memo") {
+		t.Errorf("--task should exclude memos:\n%s", out)
+	}
+
+	out = mustExecute(t, "list", "--full", "--task")
+	if !strings.Contains(out, "buy cabbage") || strings.Contains(out, "shrimp memo") {
+		t.Errorf("--full --task should show the closed task but exclude memos:\n%s", out)
+	}
+}
+
 func TestInvalidDateFails(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 

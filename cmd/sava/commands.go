@@ -151,6 +151,8 @@ func newListCommand() *cobra.Command {
 	cmd.Flags().BoolVarP(&opts.Yes, "yes", "y", false, "skip confirmation prompts")
 	cmd.Flags().StringSliceVarP(&opts.Tags, "tag", "t", nil, "show only items carrying the tags")
 	cmd.Flags().BoolVar(&opts.Or, "or", false, "match any tag instead of all")
+	cmd.Flags().BoolVarP(&opts.Full, "full", "f", false, "include completed tasks")
+	cmd.Flags().BoolVar(&opts.TasksOnly, "task", false, "show only tasks (exclude memos)")
 	return cmd
 }
 

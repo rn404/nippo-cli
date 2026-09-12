@@ -18,7 +18,7 @@
   - _Requirements: 1.1, 1.2, 1.3, 2.1, 2.2, 3.1, 3.2, 3.3, 5.1_
   - _Boundary: command.listOneDay_
 
-- [ ] 2.2 `--full`/`--task` フラグのCLI登録
+- [x] 2.2 `--full`/`--task` フラグのCLI登録
   - `list` コマンドに `--full`（完了済みタスクを含める）と `--task`（メモを除外する）のフラグを登録する
   - 登録したフラグの値を2.1で追加したオプションに橋渡しする
   - Observable: `sava list --full` および `sava list --task` を実行するとエラーなく受理され、それぞれ対応するオプション値が設定された状態でコマンド処理に渡る
