@@ -693,6 +693,81 @@ func TestListToday_TaskAndFullShowsAllTasksNoMemos(t *testing.T) {
 	}
 }
 
+// TestListToday_FullOrdersClosedGroupByCreatedAtAscending proves
+// requirement 4.2: within a single status group (here, closed tasks),
+// items are ordered by creation time ascending, independent of the
+// order they were written to the log file.
+func TestListToday_FullOrdersClosedGroupByCreatedAtAscending(t *testing.T) {
+	dir := t.TempDir()
+	closed := true
+	// Written with the later-created item first, so a passing test
+	// proves SplitByStatus actually sorts rather than merely
+	// preserving input order.
+	writeDay(t, dir, "", []model.Item{
+		{Hash: "closedb1", Content: "closed second", CreatedAt: "2026-01-01T02:00:00.000Z", UpdatedAt: "2026-01-01T02:00:00.000Z", Closed: &closed},
+		{Hash: "closeda1", Content: "closed first", CreatedAt: "2026-01-01T01:00:00.000Z", UpdatedAt: "2026-01-01T01:00:00.000Z", Closed: &closed},
+	})
+
+	var out strings.Builder
+	if err := List(&out, strings.NewReader(""), dir, ListOptions{Full: true}); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	iFirst, iSecond := strings.Index(got, "closed first"), strings.Index(got, "closed second")
+	if iFirst == -1 || iSecond == -1 {
+		t.Fatalf("--full output should contain both closed tasks:\n%s", got)
+	}
+	if !(iFirst < iSecond) {
+		t.Errorf("within the closed-task group, items should be ordered by CreatedAt ascending (\"closed first\" before \"closed second\"), got:\n%s", got)
+	}
+}
+
+// TestListToday_FullHasNoGroupHeadersBetweenSections proves
+// requirement 4.3: the closed/open/memo grouping is expressed purely
+// through item order, with no extra heading or divider line inserted
+// between groups. With one item per group, every printed body line
+// must be an item line (starting with view's bullet prefix "- "), and
+// there must be exactly as many lines as items.
+func TestListToday_FullHasNoGroupHeadersBetweenSections(t *testing.T) {
+	dir := t.TempDir()
+	closed, open := true, false
+	writeDay(t, dir, "", []model.Item{
+		{Hash: "closed11", Content: "closed task", CreatedAt: "2026-01-01T01:00:00.000Z", UpdatedAt: "2026-01-01T01:00:00.000Z", Closed: &closed},
+		{Hash: "open1111", Content: "open task", CreatedAt: "2026-01-01T02:00:00.000Z", UpdatedAt: "2026-01-01T02:00:00.000Z", Closed: &open},
+		{Hash: "memo1111", Content: "a memo", CreatedAt: "2026-01-01T03:00:00.000Z", UpdatedAt: "2026-01-01T03:00:00.000Z"},
+	})
+
+	var out strings.Builder
+	if err := List(&out, strings.NewReader(""), dir, ListOptions{Full: true}); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	// Strip the "Today's logs are..." section header (blank line +
+	// title + blank line) that view.Header prints ahead of the
+	// timeline body, so only view.Timeline's own output is inspected
+	// for group headers.
+	bodyStart := strings.Index(got, "Today's logs are...")
+	if bodyStart == -1 {
+		t.Fatalf("expected output to contain the day header, got:\n%s", got)
+	}
+	body := got[bodyStart+len("Today's logs are..."):]
+
+	var lines []string
+	for _, line := range strings.Split(body, "\n") {
+		if line != "" {
+			lines = append(lines, line)
+		}
+	}
+	if len(lines) != 3 {
+		t.Fatalf("--full body should have exactly 3 non-empty lines (one per item, no group headers), got %d lines:\n%s", len(lines), body)
+	}
+	for _, line := range lines {
+		if !strings.HasPrefix(line, "- ") {
+			t.Errorf("every body line should be an item line starting with the bullet prefix %q (no header/divider between groups), got line %q in:\n%s", "- ", line, body)
+		}
+	}
+}
+
 // TestListToday_TagFilterCombinesWithVisibility proves requirement
 // 5.1: --tag applies on top of the visibility rules as an AND
 // condition, and the closed -> open -> memo grouping order survives
