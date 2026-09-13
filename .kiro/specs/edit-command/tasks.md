@@ -24,7 +24,7 @@
   - _Requirements: 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8_
   - _Boundary: internal/editor_
 
-- [ ] 2. command層への統合とテスト
+- [x] 2. command層への統合とテスト
   - `internal/command` に、当日ログのアイテムを読み取り専用で取得する関数を追加する（キャリーフォワードのような書き込み副作用を起こさないこと）
   - `internal/command` に、1.1で実装した編集ロジックを使って当日ログのcontentを書き換え、永続化し、編集確認を出力する関数を追加する
   - `internal/command` に、編集が中断されたことを通知する関数を追加する（`internal/view`に出力処理を追加し、そこへ委譲する）

@@ -345,6 +345,52 @@ func End(w io.Writer, dir string, hashes []string) error {
 	return nil
 }
 
+// TodayItem returns the item matching hash in today's log without any
+// write side effect: it uses logfile.Stat (not ensureToday), so merely
+// looking up an item — e.g. to seed an editor buffer before any edit
+// is confirmed — never creates today's log file nor triggers the
+// automatic carry-forward. If today's log file does not exist, or
+// hash is not in it, the same "not found" error pattern as log.Find
+// is returned.
+func TodayItem(dir, hash string) (model.Item, error) {
+	file, err := logfile.Stat(dir, "")
+	if err != nil {
+		return model.Item{}, err
+	}
+	return log.Find(&file.Body, hash)
+}
+
+// Edit rewrites the content of the item matching hash in today's log,
+// persists it, and prints an edit confirmation. hash/CreatedAt/Closed/
+// StartedAt are left untouched by log.Edit; only Content and
+// UpdatedAt change.
+func Edit(w io.Writer, dir, hash, newContent string) error {
+	file, err := ensureToday(w, dir)
+	if err != nil {
+		return err
+	}
+
+	item, err := log.Edit(&file.Body, hash, newContent)
+	if err != nil {
+		return err
+	}
+
+	if err := logfile.Update(dir, file.Name, file.Body); err != nil {
+		return err
+	}
+
+	view.Edited(w, item)
+	return nil
+}
+
+// EditAborted notifies the user that an edit was aborted (e.g. the
+// editor was saved unchanged or empty). It is a thin delegation to
+// view.EditAborted so that cmd/sava never needs to import
+// internal/view directly.
+func EditAborted(w io.Writer) {
+	view.EditAborted(w)
+}
+
 // dedupe returns hashes with repeats removed, keeping first occurrence order.
 func dedupe(hashes []string) []string {
 	seen := make(map[string]bool, len(hashes))

@@ -100,6 +100,18 @@ func confirmItem(w io.Writer, label string, item model.Item) {
 	fmt.Fprintf(w, "> %s (%s)\n", item.Content, formatTime(item.CreatedAt))
 }
 
+// Edited prints the edited item confirmation.
+func Edited(w io.Writer, item model.Item) {
+	confirmItem(w, "Edited!!", item)
+}
+
+// EditAborted prints a notice that an edit was aborted (the editor
+// was saved with no changes, or an empty content) and no content was
+// rewritten.
+func EditAborted(w io.Writer) {
+	fmt.Fprintln(w, "Edit aborted: no changes to save.")
+}
+
 // TagsUpdated prints the item's tags after a tag change.
 func TagsUpdated(w io.Writer, item model.Item) {
 	fmt.Fprintln(w, "Tags updated!!")

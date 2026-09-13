@@ -1234,6 +1234,195 @@ func TestCarryRunsOnlyOncePerDay(t *testing.T) {
 	}
 }
 
+// TestEdit_DirectMode_UpdatesContent proves requirements 1.1 and 1.4:
+// Edit rewrites the content of a today's item directly and bumps
+// UpdatedAt.
+func TestEdit_DirectMode_UpdatesContent(t *testing.T) {
+	dir := t.TempDir()
+	item := model.Item{Hash: "aaaa1111", Content: "buy cabbage", CreatedAt: "2026-01-01T00:00:00.000Z", UpdatedAt: "2026-01-01T00:00:00.000Z"}
+	writeDay(t, dir, "", []model.Item{item})
+
+	var out strings.Builder
+	if err := Edit(&out, dir, item.Hash, "buy more cabbage"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Edited!!") || !strings.Contains(out.String(), "buy more cabbage") {
+		t.Errorf("Edit output = %q", out.String())
+	}
+
+	updated := todayItems(t, dir)[0]
+	if updated.Content != "buy more cabbage" {
+		t.Errorf("content = %q, want %q", updated.Content, "buy more cabbage")
+	}
+	if updated.Hash != item.Hash {
+		t.Errorf("hash should not change: got %q, want %q", updated.Hash, item.Hash)
+	}
+	if updated.UpdatedAt == item.UpdatedAt {
+		t.Errorf("UpdatedAt should change after Edit")
+	}
+}
+
+// TestEdit_AllowsEmptyContent proves requirement 1.2: an empty string
+// is applied as-is, without validation.
+func TestEdit_AllowsEmptyContent(t *testing.T) {
+	dir := t.TempDir()
+	if err := Add(io.Discard, dir, "buy cabbage", AddOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	item := todayItems(t, dir)[0]
+
+	if err := Edit(io.Discard, dir, item.Hash, ""); err != nil {
+		t.Fatal(err)
+	}
+	if updated := todayItems(t, dir)[0]; updated.Content != "" {
+		t.Errorf("content = %q, want empty", updated.Content)
+	}
+}
+
+// TestEdit_NotFoundForUnknownOrPastDayHash proves requirement 3.1 and
+// 3.2: a hash that only exists on a past day, or does not exist at
+// all, is an error when editing today's log.
+func TestEdit_NotFoundForUnknownOrPastDayHash(t *testing.T) {
+	dir := t.TempDir()
+	past := time.Now().AddDate(0, 0, -3).Format("2006-01-02")
+	writeDay(t, dir, past, []model.Item{
+		{Hash: "aaaa1111", Content: "past memo", CreatedAt: "2026-01-01T00:00:00.000Z", UpdatedAt: "2026-01-01T00:00:00.000Z"},
+	})
+	if err := Add(io.Discard, dir, "today memo", AddOptions{}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Edit(io.Discard, dir, "aaaa1111", "new content"); err == nil {
+		t.Error("Edit with a past-day-only hash should fail")
+	}
+	if err := Edit(io.Discard, dir, "no-such-hash", "new content"); err == nil {
+		t.Error("Edit with an unknown hash should fail")
+	}
+}
+
+// TestEdit_PreservesStatusAcrossKinds proves requirements 1.3, 4.1 and
+// 4.2: a memo, an open task, a started task, and a closed task can all
+// be edited, and none of their state fields (Hash, CreatedAt, Closed,
+// StartedAt) change, only Content and UpdatedAt do.
+func TestEdit_PreservesStatusAcrossKinds(t *testing.T) {
+	dir := t.TempDir()
+	closed, open := true, false
+	startedAt := "2026-01-01T05:00:00.000Z"
+	items := []model.Item{
+		{Hash: "memo1111", Content: "a memo", CreatedAt: "2026-01-01T01:00:00.000Z", UpdatedAt: "2026-01-01T01:00:00.000Z"},
+		{Hash: "open1111", Content: "open task", CreatedAt: "2026-01-01T02:00:00.000Z", UpdatedAt: "2026-01-01T02:00:00.000Z", Closed: &open},
+		{Hash: "start111", Content: "started task", CreatedAt: "2026-01-01T03:00:00.000Z", UpdatedAt: "2026-01-01T03:00:00.000Z", Closed: &open, StartedAt: &startedAt},
+		{Hash: "close111", Content: "closed task", CreatedAt: "2026-01-01T04:00:00.000Z", UpdatedAt: "2026-01-01T04:00:00.000Z", Closed: &closed},
+	}
+	writeDay(t, dir, "", items)
+
+	for _, before := range items {
+		if err := Edit(io.Discard, dir, before.Hash, "edited: "+before.Content); err != nil {
+			t.Fatalf("Edit(%q) failed: %v", before.Hash, err)
+		}
+
+		var after model.Item
+		for _, item := range todayItems(t, dir) {
+			if item.Hash == before.Hash {
+				after = item
+			}
+		}
+		if after.Content != "edited: "+before.Content {
+			t.Errorf("hash %q: content = %q, want %q", before.Hash, after.Content, "edited: "+before.Content)
+		}
+		if after.Hash != before.Hash {
+			t.Errorf("hash %q: hash changed to %q", before.Hash, after.Hash)
+		}
+		if after.CreatedAt != before.CreatedAt {
+			t.Errorf("hash %q: CreatedAt changed: %q -> %q", before.Hash, before.CreatedAt, after.CreatedAt)
+		}
+		if (after.Closed == nil) != (before.Closed == nil) || (after.Closed != nil && *after.Closed != *before.Closed) {
+			t.Errorf("hash %q: Closed changed: %v -> %v", before.Hash, before.Closed, after.Closed)
+		}
+		if (after.StartedAt == nil) != (before.StartedAt == nil) || (after.StartedAt != nil && *after.StartedAt != *before.StartedAt) {
+			t.Errorf("hash %q: StartedAt changed: %v -> %v", before.Hash, before.StartedAt, after.StartedAt)
+		}
+		if after.UpdatedAt == before.UpdatedAt {
+			t.Errorf("hash %q: UpdatedAt should change after Edit", before.Hash)
+		}
+	}
+}
+
+// TestTodayItem_ReturnsCurrentContent proves requirement 2.1: TodayItem
+// fetches the current content of an item that exists in today's log.
+func TestTodayItem_ReturnsCurrentContent(t *testing.T) {
+	dir := t.TempDir()
+	if err := Add(io.Discard, dir, "buy cabbage", AddOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	want := todayItems(t, dir)[0]
+
+	got, err := TodayItem(dir, want.Hash)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Content != want.Content || got.Hash != want.Hash {
+		t.Errorf("TodayItem = %+v, want %+v", got, want)
+	}
+}
+
+// TestTodayItem_NotFoundWhenNoTodayFileOrHash proves requirements 3.1
+// and 3.2 for the read-only path: no today's log file at all, and an
+// unknown hash within an existing today's log, are both errors.
+func TestTodayItem_NotFoundWhenNoTodayFileOrHash(t *testing.T) {
+	dir := t.TempDir()
+
+	if _, err := TodayItem(dir, "no-such-hash"); err == nil {
+		t.Error("TodayItem should fail when today's log file does not exist")
+	}
+
+	if err := Add(io.Discard, dir, "buy cabbage", AddOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := TodayItem(dir, "no-such-hash"); err == nil {
+		t.Error("TodayItem should fail for an unknown hash within an existing today's log")
+	}
+}
+
+// TestTodayItem_DoesNotTriggerCarryForward is the direct verification
+// of this task's central design constraint: TodayItem must use
+// logfile.Stat, never ensureToday, so merely looking up an item ahead
+// of opening an editor must not create today's log file nor carry
+// forward yesterday's unfinished TODOs.
+func TestTodayItem_DoesNotTriggerCarryForward(t *testing.T) {
+	dir := t.TempDir()
+	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	open := false
+	writeDay(t, dir, yesterday, []model.Item{
+		{Hash: "open1111", Content: "unfinished todo", CreatedAt: "2026-01-01T00:00:00.000Z", UpdatedAt: "2026-01-01T00:00:00.000Z", Closed: &open},
+	})
+
+	if _, err := TodayItem(dir, "open1111"); err == nil {
+		t.Error("TodayItem should not find a hash that only exists on a past day")
+	}
+
+	if _, err := logfile.Stat(dir, ""); !errors.Is(err, logfile.ErrNotFound) {
+		t.Errorf("today's log file should not have been created by TodayItem, err = %v", err)
+	}
+	source, err := logfile.Stat(dir, yesterday)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if source.Body.Freezed {
+		t.Error("yesterday's log should not be frozen by a read-only TodayItem call")
+	}
+}
+
+// TestEditAborted_PrintsMessage proves EditAborted delegates to
+// view.EditAborted and actually produces output.
+func TestEditAborted_PrintsMessage(t *testing.T) {
+	var out strings.Builder
+	EditAborted(&out)
+	if out.Len() == 0 {
+		t.Error("EditAborted should print a message")
+	}
+}
+
 // TestDelFailsOnFrozenDay proves del's own explicit freeze check:
 // since logfile.Update no longer guards frozen writes internally, del
 // must reject deleting from a day that carry has already frozen.
