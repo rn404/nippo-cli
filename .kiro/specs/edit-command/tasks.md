@@ -49,3 +49,6 @@
   - _Requirements: 1.1, 2.1, 2.2, 2.5, 2.6, 2.7, 2.8_
   - _Boundary: cmd.newEditCommand_
   - _Depends: 1.2, 2_（エディタ解決ロジックとcommand層の両方が必要）
+
+## Implementation Notes
+- タスク1.2完了時、`go vet`/`gofmt`/`go test`のみ確認し`golangci-lint`を走らせ忘れたため、CI（`guard`ジョブ）でerrcheck/gosec/revive計7件が検出された（`internal/editor`の`defer os.Remove`/`f.Close`の戻り値未チェック、`os.ReadFile`へのgosec G304誤検知、`EditorName`の命名重複、テスト内未使用パラメータ）。`edit-command-1-2`に修正コミットを追加し、`edit-command-2`/`3`へマージで伝播して解消した。以降のタスクでは、package-scopedな検証に`golangci-lint run`を必ず含めること。
