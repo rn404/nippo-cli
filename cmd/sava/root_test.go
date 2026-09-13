@@ -24,24 +24,25 @@ func execute(t *testing.T, args ...string) (string, error) {
 }
 
 // openTaskHashes extracts the hash of every open (unchecked) task
-// line in a `sava list` timeline, e.g. "- 09:30 [ ] fix bug (7ba24aef)".
-// It matches the "[ ]" marker only at its fixed position right after
-// the bullet and timestamp (not anywhere in the line) and reads the
-// hash from the LAST parenthesized group, so item content that
-// happens to contain "[ ]" or literal parentheses doesn't produce a
-// false match.
+// line in a `sava list` timeline, e.g.
+// "- [ ] 09:30 fix bug (`7ba24aef`)". It matches the "[ ]" marker
+// only at its fixed position right after the leading bullet (not
+// anywhere in the line, and not "[x]" for a closed task) and reads
+// the hash from the LAST backtick-wrapped parenthesized group, so
+// item content that happens to contain "[ ]" or literal parentheses
+// doesn't produce a false match.
 func openTaskHashes(list string) []string {
-	const markerOffset = len("- 00:00 ") // bullet + space + "HH:MM" + space
+	const markerPrefix = "- [ ]"
 	var hashes []string
 	for _, line := range strings.Split(list, "\n") {
-		if len(line) <= markerOffset || !strings.HasPrefix(line[markerOffset:], "[ ]") {
+		if !strings.HasPrefix(line, markerPrefix) {
 			continue
 		}
-		openParen, closeParen := strings.LastIndex(line, "("), strings.LastIndex(line, ")")
+		openParen, closeParen := strings.LastIndex(line, "(`"), strings.LastIndex(line, "`)")
 		if openParen == -1 || closeParen == -1 || closeParen < openParen {
 			continue
 		}
-		hashes = append(hashes, line[openParen+1:closeParen])
+		hashes = append(hashes, line[openParen+2:closeParen])
 	}
 	return hashes
 }
@@ -52,8 +53,8 @@ func openTaskHashes(list string) []string {
 // and a task whose content contains parentheses before the trailing
 // (hash) must still yield the real hash, not the content's own text.
 func TestOpenTaskHashesIgnoresContentThatLooksLikeAMarker(t *testing.T) {
-	list := "- 09:12 ・ use [ ] for checkboxes (aaaa1111)\n" +
-		"- 09:30 [ ] call (urgent) client (bbbb2222)\n"
+	list := "- 09:12 use [ ] for checkboxes (`aaaa1111`)\n" +
+		"- [ ] 09:30 call (urgent) client (`bbbb2222`)\n"
 
 	got := openTaskHashes(list)
 	if len(got) != 1 || got[0] != "bbbb2222" {
@@ -88,7 +89,7 @@ func TestAddListFlow(t *testing.T) {
 	mustExecute(t, "add", "shrimp memo")
 
 	out := mustExecute(t, "list")
-	for _, want := range []string{"[ ] buy cabbage", "・ shrimp memo"} {
+	for _, want := range []string{"[ ] ", "buy cabbage", "shrimp memo"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("list output should contain %q:\n%s", want, out)
 		}
@@ -115,7 +116,7 @@ func TestStartFlow(t *testing.T) {
 	mustExecute(t, "todo", "-s", "slice cabbage")
 
 	out := mustExecute(t, "list")
-	if !strings.Contains(out, "[>] slice cabbage") {
+	if !strings.Contains(out, "[ ] `in-progress`") || !strings.Contains(out, "slice cabbage") {
 		t.Errorf("todo added with -s should be shown as started:\n%s", out)
 	}
 
@@ -260,7 +261,7 @@ func TestCarryFlow(t *testing.T) {
 	}
 
 	list := mustExecute(t, "list")
-	if !strings.Contains(list, "[ ] unfinished todo") {
+	if !strings.Contains(list, "[ ] ") || !strings.Contains(list, "unfinished todo") {
 		t.Errorf("carried todo should appear in today's list:\n%s", list)
 	}
 
