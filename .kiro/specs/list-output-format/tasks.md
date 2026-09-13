@@ -12,7 +12,7 @@
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 2.1, 2.2, 2.3, 3.1, 3.2, 4.1, 4.2_
   - _Boundary: view.Timeline_
 
-- [ ] 2. FullTextオプションの橋渡しとCLI統合
+- [x] 2. FullTextオプションの橋渡しとCLI統合
 - [x] 2.1 全文表示オプションのcommand層への橋渡し
   - `list` コマンドのオプションに、全文表示を切り替えるフラグ値を追加する
   - 日次表示（stat無し）で、このフラグ値をタスク1で実装した描画ロジックに渡す（これにより、タスク1の時点で生じていた `internal/command` のビルド不整合が解消され、リポジトリ全体が再びビルド可能になる）
@@ -23,7 +23,7 @@
   - _Requirements: 4.1, 4.2, 5.1, 5.2, 5.3, 5.4_
   - _Boundary: command.listOneDay_
 
-- [ ] 2.2 `--full-text` フラグのCLI登録
+- [x] 2.2 `--full-text` フラグのCLI登録
   - `list` コマンドに `--full-text`（短縮形なし）フラグを登録する
   - 登録したフラグの値を2.1で追加したオプションに橋渡しする
   - Observable: `sava list --full-text` を実行するとエラーなく受理され、複数行contentを持つアイテムの全文が実際に表示される

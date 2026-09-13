@@ -340,6 +340,29 @@ func TestListFullAndTaskFlags(t *testing.T) {
 	}
 }
 
+// TestFullTextFlag proves "--full-text" is registered on the list
+// command and bridged to command.ListOptions.FullText: a multi-line
+// memo shows only its first line by default, and its full content
+// (all lines) once --full-text is given.
+func TestFullTextFlag(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	mustExecute(t, "add", "first line\nsecond line")
+
+	out := mustExecute(t, "list")
+	if !strings.Contains(out, "first line") {
+		t.Errorf("list output should contain the first line:\n%s", out)
+	}
+	if strings.Contains(out, "second line") {
+		t.Errorf("list without --full-text should not show the second line:\n%s", out)
+	}
+
+	out = mustExecute(t, "list", "--full-text")
+	if !strings.Contains(out, "first line\nsecond line") {
+		t.Errorf("list --full-text should show the full multi-line content:\n%s", out)
+	}
+}
+
 func TestInvalidDateFails(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
