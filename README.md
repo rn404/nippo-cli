@@ -80,6 +80,12 @@ sava tag <hash> <tag>...
 sava tag -d <hash> <tag>...
 sava tag --list
 
+# Edit an item's content directly (today's log only; hash and status are kept)
+sava edit <hash> <new content>
+
+# Edit via $EDITOR instead (falls back to $VISUAL, then vi)
+sava edit <hash>
+
 # Show elapsed time between two items (each given as <date>:<hash>)
 sava diff <date>:<hashA>...<date>:<hashB>
 sava diff <date>:<hashA> <date>:<hashB>
@@ -120,6 +126,11 @@ sava clear -a
 `` (`hash`) `` に統一されているので、`grep -oE '`[a-f0-9]{8}`'` のようなパターンで
 pipe からも一貫して抜き取れます。複数行の content はデフォルトでは先頭行のみを表示し、
 `--full-text` で全文を表示します。
+
+`sava edit` は当日ログのアイテムのみが対象です（過去ログは不変という方針のため）。
+content の直接指定では空文字列もそのまま適用されます（`add`/`todo` と同様にバリデーションは
+行いません）。`$EDITOR` 経由の場合は、保存した内容が編集前と同一、または空文字列だったときは
+`git commit` の空メッセージ中断と同様にエラーにせず中断します。
 
 ログは `~/.log/sava/<yyyy-MM-dd>.json` に 1 日 1 ファイルで保存されます.
 フォーマットの仕様サンプルは `testdata/log-format/` にあります.

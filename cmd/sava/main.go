@@ -43,6 +43,7 @@ func newRootCommand() *cobra.Command {
 		newTodoCommand(),
 		newStartCommand(),
 		newEndCommand(),
+		newEditCommand(),
 		newDelCommand(),
 		newTagCommand(),
 		newDiffCommand(),

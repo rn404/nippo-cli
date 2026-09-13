@@ -2,11 +2,14 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/rn404/nippo-cli/internal/command"
+	"github.com/rn404/nippo-cli/internal/editor"
 	"github.com/rn404/nippo-cli/internal/logfile"
 )
 
@@ -63,6 +66,48 @@ func newEndCommand() *cobra.Command {
 			return command.End(cmd.OutOrStdout(), logfile.Dir(), args)
 		},
 	}
+}
+
+func newEditCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "edit <hash> [new content]",
+		Short: "edit the content of an existing item.",
+		Args:  cobra.RangeArgs(1, 2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			dir := logfile.Dir()
+			w := cmd.OutOrStdout()
+
+			if len(args) == 2 {
+				return command.Edit(w, dir, args[0], args[1])
+			}
+
+			item, err := command.TodayItem(dir, args[0])
+			if err != nil {
+				return err
+			}
+
+			content, ok, err := editor.Resolve(item.Content, runEditor)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				command.EditAborted(w)
+				return nil
+			}
+			return command.Edit(w, dir, args[0], content)
+		},
+	}
+}
+
+// runEditor is the production launch function injected into
+// editor.Resolve: it execs the named editor against path with the
+// real terminal's stdin/stdout/stderr attached.
+func runEditor(name, path string) error {
+	cmd := exec.Command(name, path) //nolint:gosec // name comes from the user's own $EDITOR/$VISUAL (or "vi"), the same trust boundary as `git commit` invoking $EDITOR; path is our own temp file
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 func newTagCommand() *cobra.Command {

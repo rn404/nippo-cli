@@ -1,6 +1,6 @@
 # Implementation Plan
 
-- [ ] 1. ドメイン・ユーティリティ層の実装
+- [x] 1. ドメイン・ユーティリティ層の実装
 - [x] 1.1 (P) 当日ログのcontent編集ロジックとユニットテスト
   - `internal/log` に、hashで当日ログのアイテムを読み取り専用に検索する関数を追加する
   - `internal/log` に、hashで検索したアイテムのcontentを書き換え、`UpdatedAt`を更新する関数を追加する（状態による分岐は無く、contentの妥当性検証も行わない。空文字列であってもそのまま適用する）
@@ -38,7 +38,7 @@
   - _Boundary: command.Edit, command.TodayItem, view.Edited_
   - _Depends: 1.1_（1.2のエディタ起動ロジックはこのタスクでは使用しないため、1.2の完了は前提としない）
 
-- [ ] 3. `edit` コマンドのCLI統合とエンドツーエンドテスト
+- [x] 3. `edit` コマンドのCLI統合とエンドツーエンドテスト
   - `list`等と同じパターンで `edit` サブコマンドを登録する。hash引数は必須、content引数は省略可能にする
   - content引数が指定された場合は、2で実装したcontent書き換え処理を直接呼ぶ
   - content引数が省略された場合は、2で実装した読み取り専用取得で現在のcontentを取得し、1.2で実装したエディタ解決ロジックに渡す。結果に応じて書き換え処理または中断通知を呼ぶ。エディタ起動自体が失敗した場合はエラーとして終了する
@@ -49,3 +49,6 @@
   - _Requirements: 1.1, 2.1, 2.2, 2.5, 2.6, 2.7, 2.8_
   - _Boundary: cmd.newEditCommand_
   - _Depends: 1.2, 2_（エディタ解決ロジックとcommand層の両方が必要）
+
+## Implementation Notes
+- タスク1.2完了時、`go vet`/`gofmt`/`go test`のみ確認し`golangci-lint`を走らせ忘れたため、CI（`guard`ジョブ）でerrcheck/gosec/revive計7件が検出された（`internal/editor`の`defer os.Remove`/`f.Close`の戻り値未チェック、`os.ReadFile`へのgosec G304誤検知、`EditorName`の命名重複、テスト内未使用パラメータ）。`edit-command-1-2`に修正コミットを追加し、`edit-command-2`/`3`へマージで伝播して解消した。以降のタスクでは、package-scopedな検証に`golangci-lint run`を必ず含めること。
