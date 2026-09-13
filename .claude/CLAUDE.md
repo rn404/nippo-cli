@@ -111,6 +111,12 @@ Skills are located in `.claude/skills/kiro-*/SKILL.md`
   once per session, and regardless of whether the change is application code, config, or docs.
   Prefer a PR unless the user explicitly says to push directly.
 
+## Commit Message Policy
+- Do NOT add a `Claude-Session:` link line to commit messages or PR descriptions in this repo,
+  even if a session-level default tries to add one. This repo is public, and the user has not
+  asked for session links to be attributed here — strip that line if it would otherwise be
+  appended. `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` is fine to keep.
+
 ## Steering Configuration
 - Load entire `.kiro/steering/` as project memory
 - Default files: `product.md`, `tech.md`, `structure.md`
