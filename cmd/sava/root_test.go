@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -60,6 +62,34 @@ func TestOpenTaskHashesIgnoresContentThatLooksLikeAMarker(t *testing.T) {
 	if len(got) != 1 || got[0] != "bbbb2222" {
 		t.Errorf("openTaskHashes = %+v, want exactly [bbbb2222]", got)
 	}
+}
+
+// addedHash extracts the hash from a "sava add"/"sava todo" output's
+// "> <content> (<time>) <hash>[<tags>]" confirmation line, taking the
+// last whitespace-separated field so it still works when the content
+// itself contains spaces.
+func addedHash(out string) string {
+	for _, line := range strings.Split(out, "\n") {
+		if strings.HasPrefix(line, "> ") {
+			fields := strings.Fields(line)
+			if len(fields) > 0 {
+				return fields[len(fields)-1]
+			}
+		}
+	}
+	return ""
+}
+
+// writeFakeEditor writes an executable shell script at a path under
+// dir and returns that path, for use as $EDITOR in editor-mode tests.
+func writeFakeEditor(t *testing.T, dir, name, script string) string {
+	t.Helper()
+
+	path := filepath.Join(dir, name)
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return path
 }
 
 func mustExecute(t *testing.T, args ...string) string {
@@ -377,5 +407,92 @@ func TestUnknownHashFails(t *testing.T) {
 
 	if _, err := execute(t, "end", "no-such-hash"); err == nil {
 		t.Error("end with an unknown hash should fail")
+	}
+}
+
+// TestEditDirectMode proves "sava edit <hash> <new content>" rewrites
+// the item's content immediately, without touching $EDITOR at all.
+func TestEditDirectMode(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	added := mustExecute(t, "add", "original content")
+	hash := addedHash(added)
+	if hash == "" {
+		t.Fatalf("could not extract hash from add output:\n%s", added)
+	}
+
+	out := mustExecute(t, "edit", hash, "fixed content")
+	if !strings.Contains(out, "Edited!!") || !strings.Contains(out, "fixed content") {
+		t.Errorf("edit output = %q", out)
+	}
+
+	list := mustExecute(t, "list")
+	if !strings.Contains(list, "fixed content") {
+		t.Errorf("list after edit should show the new content:\n%s", list)
+	}
+	if strings.Contains(list, "original content") {
+		t.Errorf("list after edit should not show the old content:\n%s", list)
+	}
+	if !strings.Contains(list, hash) {
+		t.Errorf("list after edit should still show hash %q:\n%s", hash, list)
+	}
+}
+
+// TestEditEditorMode proves "sava edit <hash>" (content omitted)
+// launches $EDITOR against a temp file seeded with the current
+// content, and applies whatever that script saves.
+func TestEditEditorMode(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	added := mustExecute(t, "add", "original content")
+	hash := addedHash(added)
+	if hash == "" {
+		t.Fatalf("could not extract hash from add output:\n%s", added)
+	}
+
+	script := writeFakeEditor(t, t.TempDir(), "fake-editor.sh", "#!/bin/sh\necho \"edited via script\" > \"$1\"\n")
+	t.Setenv("EDITOR", script)
+
+	out := mustExecute(t, "edit", hash)
+	if !strings.Contains(out, "Edited!!") || !strings.Contains(out, "edited via script") {
+		t.Errorf("edit output = %q", out)
+	}
+
+	list := mustExecute(t, "list")
+	if !strings.Contains(list, "edited via script") {
+		t.Errorf("list after editor-mode edit should show the new content:\n%s", list)
+	}
+	if strings.Contains(list, "original content") {
+		t.Errorf("list after editor-mode edit should not show the old content:\n%s", list)
+	}
+}
+
+// TestEditEditorMode_AbortsOnUnchanged proves that when the $EDITOR
+// script leaves the temp file's content unchanged (a no-op save), the
+// edit is aborted: no error, an abort message, and the item's content
+// stays exactly as it was.
+func TestEditEditorMode_AbortsOnUnchanged(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	added := mustExecute(t, "add", "original content")
+	hash := addedHash(added)
+	if hash == "" {
+		t.Fatalf("could not extract hash from add output:\n%s", added)
+	}
+
+	script := writeFakeEditor(t, t.TempDir(), "noop-editor.sh", "#!/bin/sh\ntrue\n")
+	t.Setenv("EDITOR", script)
+
+	out := mustExecute(t, "edit", hash)
+	if !strings.Contains(out, "Edit aborted") {
+		t.Errorf("edit output should report an abort:\n%s", out)
+	}
+	if strings.Contains(out, "Edited!!") {
+		t.Errorf("edit output should not confirm an edit on abort:\n%s", out)
+	}
+
+	list := mustExecute(t, "list")
+	if !strings.Contains(list, "original content") {
+		t.Errorf("content should be unchanged after an aborted edit:\n%s", list)
 	}
 }
