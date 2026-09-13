@@ -237,6 +237,162 @@ func TestStartErrors(t *testing.T) {
 	}
 }
 
+// editTestLog returns a log covering every lifecycle state Edit must
+// support regardless of status: an open task, a started task, a
+// closed task, and a memo. Each item also carries a tag so Edit's
+// promise to leave Tags untouched can be checked.
+func editTestLog() model.Log {
+	open := false
+	started := false
+	closedFlag := true
+	startedAt := "2026-07-05T01:30:00.000Z"
+
+	return model.Log{
+		Hash:    "filehash",
+		Freezed: false,
+		Items: []model.Item{
+			{Hash: "task-open", Content: "open task", CreatedAt: "2026-07-05T02:00:00.000Z", UpdatedAt: "2026-07-05T02:00:00.000Z", Closed: &open, Tags: []string{"cli"}},
+			{Hash: "task-started", Content: "started task", CreatedAt: "2026-07-05T01:15:00.000Z", UpdatedAt: "2026-07-05T01:30:00.000Z", Closed: &started, StartedAt: &startedAt, Tags: []string{"cli"}},
+			{Hash: "task-done", Content: "done task", CreatedAt: "2026-07-05T01:00:00.000Z", UpdatedAt: "2026-07-05T01:30:00.000Z", Closed: &closedFlag, Tags: []string{"cli"}},
+			{Hash: "memo-1", Content: "a memo", CreatedAt: "2026-07-05T03:00:00.000Z", UpdatedAt: "2026-07-05T03:00:00.000Z", Tags: []string{"cli"}},
+		},
+	}
+}
+
+func TestFind_ReturnsItem(t *testing.T) {
+	l := editTestLog()
+
+	item, err := Find(&l, "memo-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if item.Content != "a memo" {
+		t.Errorf("Content = %q, want %q", item.Content, "a memo")
+	}
+
+	// Find must not mutate the log.
+	if len(l.Items) != 4 {
+		t.Errorf("Find should not change the log: items = %d, want 4", len(l.Items))
+	}
+}
+
+func TestFind_NotFound(t *testing.T) {
+	l := editTestLog()
+
+	if _, err := Find(&l, "no-such-hash"); err == nil {
+		t.Errorf("finding unknown hash should fail")
+	}
+}
+
+func TestEdit_UpdatesContentAndUpdatedAt(t *testing.T) {
+	l := editTestLog()
+
+	edited, err := Edit(&l, "memo-1", "fixed typo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if edited.Content != "fixed typo" {
+		t.Errorf("Content = %q, want %q", edited.Content, "fixed typo")
+	}
+	if edited.UpdatedAt == "2026-07-05T03:00:00.000Z" {
+		t.Errorf("UpdatedAt should be renewed on edit")
+	}
+	if l.Items[3].Content != "fixed typo" {
+		t.Errorf("log should hold the edited item: %+v", l.Items[3])
+	}
+}
+
+// TestEdit_PreservesHashCreatedAtAndStatus checks that an open task, a
+// started task, a closed task, and a memo can all be edited, and that
+// editing never changes Hash/CreatedAt/Closed/StartedAt/Tags -- only
+// Content and UpdatedAt move.
+func TestEdit_PreservesHashCreatedAtAndStatus(t *testing.T) {
+	cases := []string{"task-open", "task-started", "task-done", "memo-1"}
+
+	for _, hash := range cases {
+		t.Run(hash, func(t *testing.T) {
+			l := editTestLog()
+			before, err := Find(&l, hash)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			edited, err := Edit(&l, hash, "edited content")
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if edited.Content != "edited content" {
+				t.Errorf("Content = %q, want %q", edited.Content, "edited content")
+			}
+			if edited.UpdatedAt == before.UpdatedAt {
+				t.Errorf("UpdatedAt should be renewed on edit")
+			}
+
+			if edited.Hash != before.Hash {
+				t.Errorf("Hash changed: got %q, want %q", edited.Hash, before.Hash)
+			}
+			if edited.CreatedAt != before.CreatedAt {
+				t.Errorf("CreatedAt changed: got %q, want %q", edited.CreatedAt, before.CreatedAt)
+			}
+			if (edited.Closed == nil) != (before.Closed == nil) {
+				t.Fatalf("Closed nil-ness changed: got %v, want %v", edited.Closed, before.Closed)
+			}
+			if edited.Closed != nil && *edited.Closed != *before.Closed {
+				t.Errorf("Closed value changed: got %v, want %v", *edited.Closed, *before.Closed)
+			}
+			if (edited.StartedAt == nil) != (before.StartedAt == nil) {
+				t.Fatalf("StartedAt nil-ness changed: got %v, want %v", edited.StartedAt, before.StartedAt)
+			}
+			if edited.StartedAt != nil && *edited.StartedAt != *before.StartedAt {
+				t.Errorf("StartedAt value changed: got %v, want %v", *edited.StartedAt, *before.StartedAt)
+			}
+			if len(edited.Tags) != len(before.Tags) {
+				t.Fatalf("Tags changed: got %+v, want %+v", edited.Tags, before.Tags)
+			}
+			for i := range before.Tags {
+				if edited.Tags[i] != before.Tags[i] {
+					t.Errorf("Tags changed: got %+v, want %+v", edited.Tags, before.Tags)
+					break
+				}
+			}
+
+			// Also check the log's own copy, not just the returned value.
+			stored := l.Items[indexOf(l.Items, hash)]
+			if stored.Content != "edited content" {
+				t.Errorf("log should hold the edited content: %+v", stored)
+			}
+		})
+	}
+}
+
+// TestEdit_AllowsEmptyContent is a deliberate guard, not an oversight:
+// Edit must not validate newContent at all, consistent with Add's
+// lack of content validation. An empty string is accepted and applied
+// as-is.
+func TestEdit_AllowsEmptyContent(t *testing.T) {
+	l := editTestLog()
+
+	edited, err := Edit(&l, "memo-1", "")
+	if err != nil {
+		t.Fatalf("Edit with empty content should not error, got %v", err)
+	}
+	if edited.Content != "" {
+		t.Errorf("Content = %q, want empty string applied as-is", edited.Content)
+	}
+	if l.Items[3].Content != "" {
+		t.Errorf("log should hold the emptied content: %+v", l.Items[3])
+	}
+}
+
+func TestEdit_NotFound(t *testing.T) {
+	l := editTestLog()
+
+	if _, err := Edit(&l, "no-such-hash", "new content"); err == nil {
+		t.Errorf("editing unknown hash should fail")
+	}
+}
+
 func TestAddAndRemoveTags(t *testing.T) {
 	l := newTestLog()
 
