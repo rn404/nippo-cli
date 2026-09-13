@@ -451,6 +451,7 @@ type ListOptions struct {
 	Or        bool     // match any tag instead of all
 	Full      bool     // include closed tasks in the daily (non-stat) view
 	TasksOnly bool     // exclude memos from the daily (non-stat) view
+	FullText  bool     // show full multi-line content in the daily (non-stat) view
 }
 
 // List shows the items of one day, or summaries across all log files.
@@ -540,7 +541,7 @@ func listOneDay(w io.Writer, dir string, opts ListOptions) error {
 	if len(opts.Tags) > 0 {
 		items = log.FilterByTags(items, opts.Tags, opts.Or)
 	}
-	view.Timeline(w, items)
+	view.Timeline(w, items, opts.FullText)
 	return nil
 }
 
