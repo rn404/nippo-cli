@@ -1,0 +1,24 @@
+{
+  "feature_name": "edit-command",
+  "created_at": "2026-09-13T01:47:28Z",
+  "updated_at": "2026-09-13T02:36:37Z",
+  "language": "ja",
+  "phase": "tasks-generated",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": false
+    }
+  },
+  "ready_for_implementation": false,
+  "linear_issue_id": "RN4-6",
+  "linear_issue_url": "https://linear.app/rn404/issue/RN4-6/edit-command"
+}
