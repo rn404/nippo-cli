@@ -94,6 +94,9 @@ sava list --full
 sava list --task
 sava list --task --full
 
+# Show full (multi-line) content instead of just the first line
+sava list --full-text
+
 # Filter by tags (multiple tags match all; --or matches any)
 sava list -t <tag>[,<tag>...]
 sava list -t <tag>,<tag> --or
@@ -111,6 +114,12 @@ sava clear
 # Delete all logs (with confirmation; use -y to skip prompts)
 sava clear -a
 ```
+
+`list` の各行は Markdown のチェックリスト構文で描画されます（未着手 `- [ ]` / 着手中
+`` - [ ] `in-progress` `` / 完了 `- [x]` / メモは `-` のみ）。hash は常に行末の
+`` (`hash`) `` に統一されているので、`grep -oE '`[a-f0-9]{8}`'` のようなパターンで
+pipe からも一貫して抜き取れます。複数行の content はデフォルトでは先頭行のみを表示し、
+`--full-text` で全文を表示します。
 
 ログは `~/.log/sava/<yyyy-MM-dd>.json` に 1 日 1 ファイルで保存されます.
 フォーマットの仕様サンプルは `testdata/log-format/` にあります.
