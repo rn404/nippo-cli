@@ -1,6 +1,18 @@
 # Agentic SDLC and Spec-Driven Development
 
-Kiro-style Spec-Driven Development on an agentic SDLC
+Kiro-style Spec-Driven Development on an agentic SDLC, via [cc-sdd](https://github.com/gotalab/cc-sdd)
+`3.0.2`. The `kiro-*` skills themselves are installed personally/globally (`~/.claude/skills/`),
+not committed to this repo — see "Git Push Policy" section for why, and below for what that
+implies for compatibility.
+
+- `.kiro/settings/templates/` and this file reflect cc-sdd `3.0.2`'s template shapes and skill
+  instructions at the time they were captured. If the global `~/.claude/skills/kiro-*` are later
+  upgraded to a newer cc-sdd release with breaking changes (e.g. a different `spec.json` schema,
+  renamed template placeholders, changed review-gate rules), existing specs under `.kiro/specs/`
+  were generated under `3.0.2`'s assumptions and may not regenerate identically under a newer
+  version. Re-run the relevant `/kiro-spec-*` step to confirm compatibility before trusting a
+  newer version's output against this project's existing spec files, and bump the version noted
+  here if you do upgrade intentionally.
 
 ## Project Context
 
