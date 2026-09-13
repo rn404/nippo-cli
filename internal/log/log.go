@@ -155,6 +155,35 @@ func Start(l *model.Log, hash string) (model.Item, error) {
 	return model.Item{}, fmt.Errorf("target item %q is not found", hash)
 }
 
+// Find returns the item matching hash without modifying the log.
+func Find(l *model.Log, hash string) (model.Item, error) {
+	i := indexOf(l.Items, hash)
+	if i == -1 {
+		return model.Item{}, fmt.Errorf("target item %q is not found", hash)
+	}
+	return l.Items[i], nil
+}
+
+// Edit replaces the content of the item matching hash and updates
+// UpdatedAt. Unlike Start, Edit does not validate the item's
+// lifecycle state or kind — a memo or a task in any state can be
+// edited. newContent is not validated either (an empty string is
+// accepted as-is), consistent with Add's lack of content validation.
+func Edit(l *model.Log, hash, newContent string) (model.Item, error) {
+	for i, item := range l.Items {
+		if item.Hash != hash {
+			continue
+		}
+
+		item.Content = newContent
+		item.UpdatedAt = model.NowISO()
+		l.Items[i] = item
+		return item, nil
+	}
+
+	return model.Item{}, fmt.Errorf("target item %q is not found", hash)
+}
+
 // normalizeTags trims whitespace and deduplicates tags while keeping
 // their order. Empty tags and tags containing whitespace are rejected.
 func normalizeTags(tags []string) ([]string, error) {
