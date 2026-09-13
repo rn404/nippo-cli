@@ -303,6 +303,23 @@ func TestFormatDuration(t *testing.T) {
 	}
 }
 
+func TestEdited(t *testing.T) {
+	var buf strings.Builder
+	Edited(&buf, model.Item{Content: "buy cabbage", CreatedAt: "2026-07-05T08:43:04.971Z"})
+	out := buf.String()
+	if !strings.Contains(out, "Edited!!") || !strings.Contains(out, "> buy cabbage (") {
+		t.Errorf("Edited output = %q", out)
+	}
+}
+
+func TestEditAborted(t *testing.T) {
+	var buf strings.Builder
+	EditAborted(&buf)
+	if buf.Len() == 0 {
+		t.Error("EditAborted should print a message")
+	}
+}
+
 func TestTagsUpdated(t *testing.T) {
 	var buf strings.Builder
 	TagsUpdated(&buf, model.Item{Content: "buy cabbage", CreatedAt: "2026-07-05T08:43:04.971Z", Tags: []string{"cabbage"}})
