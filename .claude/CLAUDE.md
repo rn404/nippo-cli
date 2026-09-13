@@ -92,6 +92,13 @@ Skills are located in `.claude/skills/kiro-*/SKILL.md`
 - Keep steering current and verify alignment with `/kiro-spec-status`
 - Follow the user's instructions precisely, and within that scope act autonomously: gather the necessary context and complete the requested work end-to-end in this run, asking questions only when essential information is missing or the instructions are critically ambiguous.
 
+## Git Push Policy
+- `main` is branch-protected in this repo (PR required, `guard` CI check required). An admin
+  account can bypass this, but bypassing is still a deliberate exception, not a default.
+- Always ask for explicit confirmation before pushing directly to `main` — every time, not just
+  once per session, and regardless of whether the change is application code, config, or docs.
+  Prefer a PR unless the user explicitly says to push directly.
+
 ## Steering Configuration
 - Load entire `.kiro/steering/` as project memory
 - Default files: `product.md`, `tech.md`, `structure.md`
