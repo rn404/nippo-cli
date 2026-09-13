@@ -1,6 +1,6 @@
 # Implementation Plan
 
-- [ ] 1. content空文字列検証の実装とユニットテスト
+- [x] 1. content空文字列検証の実装とユニットテスト
   - `internal/log`に、既存の`ErrEmptyTag`と同型のsentinel error（`ErrEmptyContent`）を追加する
   - `Add`関数の先頭でcontentをトリムし、トリム後に空文字列であればItemを作成せず`ErrEmptyContent`を返すようにする（Task/Memo共通で同じ基準を適用する）
   - トリム後に空でないcontentは、既存動作通りトリムせず元の文字列のままItemとして保存する

@@ -45,6 +45,35 @@ func TestAdd(t *testing.T) {
 	}
 }
 
+func TestAddRejectsEmptyContent(t *testing.T) {
+	l := newTestLog()
+	want := len(l.Items)
+
+	for _, content := range []string{"", "   ", "\t\n"} {
+		if _, err := Add(&l, content, false); !errors.Is(err, ErrEmptyContent) {
+			t.Errorf("Add(%q, false) err = %v, want ErrEmptyContent", content, err)
+		}
+		if _, err := Add(&l, content, true); !errors.Is(err, ErrEmptyContent) {
+			t.Errorf("Add(%q, true) err = %v, want ErrEmptyContent", content, err)
+		}
+	}
+	if len(l.Items) != want {
+		t.Errorf("items = %d, want unchanged %d", len(l.Items), want)
+	}
+}
+
+func TestAddKeepsContentUntrimmed(t *testing.T) {
+	l := newTestLog()
+
+	memo, err := Add(&l, "  padded memo  ", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if memo.Content != "  padded memo  " {
+		t.Errorf("Content = %q, want leading/trailing whitespace preserved", memo.Content)
+	}
+}
+
 func TestCarryForward(t *testing.T) {
 	tagged := newTestLog()
 	tagged.Items[0].Tags = []string{"cli"} // task-open
