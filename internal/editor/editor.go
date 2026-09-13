@@ -9,9 +9,9 @@ import (
 	"strings"
 )
 
-// EditorName returns the editor to invoke: $EDITOR, else $VISUAL,
-// else "vi".
-func EditorName() string {
+// Name returns the editor to invoke: $EDITOR, else $VISUAL, else
+// "vi".
+func Name() string {
 	if v := os.Getenv("EDITOR"); v != "" {
 		return v
 	}
@@ -33,21 +33,21 @@ func Resolve(current string, launch func(editorName, path string) error) (conten
 		return "", false, err
 	}
 	path := f.Name()
-	defer os.Remove(path)
+	defer func() { _ = os.Remove(path) }()
 
 	if _, err := f.WriteString(current); err != nil {
-		f.Close()
+		_ = f.Close()
 		return "", false, err
 	}
 	if err := f.Close(); err != nil {
 		return "", false, err
 	}
 
-	if err := launch(EditorName(), path); err != nil {
+	if err := launch(Name(), path); err != nil {
 		return "", false, err
 	}
 
-	saved, err := os.ReadFile(path)
+	saved, err := os.ReadFile(path) // #nosec G304 -- path is our own os.CreateTemp file, not user input
 	if err != nil {
 		return "", false, err
 	}
