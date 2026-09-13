@@ -10,7 +10,7 @@ import (
 // with newContent and reports success, simulating an editor session
 // that saves newContent and exits cleanly.
 func writeLaunch(newContent string) func(editorName, path string) error {
-	return func(editorName, path string) error {
+	return func(_, path string) error {
 		return os.WriteFile(path, []byte(newContent), 0o644)
 	}
 }
@@ -18,7 +18,7 @@ func writeLaunch(newContent string) func(editorName, path string) error {
 // errLaunch returns a fake launch func that reports failure without
 // touching the file, simulating an editor that exits non-zero.
 func errLaunch(err error) func(editorName, path string) error {
-	return func(editorName, path string) error {
+	return func(_, _ string) error {
 		return err
 	}
 }
@@ -77,7 +77,7 @@ func TestResolve_PropagatesLaunchError(t *testing.T) {
 
 func TestResolve_RemovesTempFileOnSuccess(t *testing.T) {
 	var capturedPath string
-	launch := func(editorName, path string) error {
+	launch := func(_, path string) error {
 		capturedPath = path
 		return os.WriteFile(path, []byte("updated\n"), 0o644)
 	}
@@ -95,7 +95,7 @@ func TestResolve_RemovesTempFileOnSuccess(t *testing.T) {
 
 func TestResolve_RemovesTempFileOnLaunchError(t *testing.T) {
 	var capturedPath string
-	launch := func(editorName, path string) error {
+	launch := func(_, path string) error {
 		capturedPath = path
 		return errors.New("boom")
 	}
@@ -113,7 +113,7 @@ func TestResolve_RemovesTempFileOnLaunchError(t *testing.T) {
 
 func TestResolve_WritesCurrentContentToTempFileBeforeLaunch(t *testing.T) {
 	var seenDuringLaunch string
-	launch := func(editorName, path string) error {
+	launch := func(_, path string) error {
 		b, err := os.ReadFile(path)
 		if err != nil {
 			return err
@@ -130,29 +130,29 @@ func TestResolve_WritesCurrentContentToTempFileBeforeLaunch(t *testing.T) {
 	}
 }
 
-func TestEditorName_PrefersEditorEnv(t *testing.T) {
+func TestName_PrefersEditorEnv(t *testing.T) {
 	t.Setenv("EDITOR", "my-editor")
 	t.Setenv("VISUAL", "my-visual")
 
-	if got := EditorName(); got != "my-editor" {
-		t.Fatalf("EditorName() = %q, want %q", got, "my-editor")
+	if got := Name(); got != "my-editor" {
+		t.Fatalf("Name() = %q, want %q", got, "my-editor")
 	}
 }
 
-func TestEditorName_FallsBackToVisual(t *testing.T) {
+func TestName_FallsBackToVisual(t *testing.T) {
 	t.Setenv("EDITOR", "")
 	t.Setenv("VISUAL", "my-visual")
 
-	if got := EditorName(); got != "my-visual" {
-		t.Fatalf("EditorName() = %q, want %q", got, "my-visual")
+	if got := Name(); got != "my-visual" {
+		t.Fatalf("Name() = %q, want %q", got, "my-visual")
 	}
 }
 
-func TestEditorName_FallsBackToVi(t *testing.T) {
+func TestName_FallsBackToVi(t *testing.T) {
 	t.Setenv("EDITOR", "")
 	t.Setenv("VISUAL", "")
 
-	if got := EditorName(); got != "vi" {
-		t.Fatalf("EditorName() = %q, want %q", got, "vi")
+	if got := Name(); got != "vi" {
+		t.Fatalf("Name() = %q, want %q", got, "vi")
 	}
 }
