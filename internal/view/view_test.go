@@ -20,15 +20,17 @@ func TestTimeline(t *testing.T) {
 	}
 
 	var buf strings.Builder
-	Timeline(&buf, items)
+	Timeline(&buf, items, false)
 	out := buf.String()
 
 	for _, want := range []string{
-		"- ",
-		"[x] buy cabbage (aaaa1111)",
-		"[ ] feed the shrimp (bbbb2222)",
-		"[>] slice cabbage (dddd4444)",
-		"・ shrimp looks happy today (cccc3333) #shrimp #pet",
+		"- [x] ",
+		"buy cabbage (`aaaa1111`)",
+		"- [ ] ",
+		"feed the shrimp (`bbbb2222`)",
+		"- [ ] `in-progress` ",
+		"slice cabbage (`dddd4444`)",
+		"shrimp looks happy today (`cccc3333`) #shrimp #pet",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output should contain %q:\n%s", want, out)
@@ -42,13 +44,158 @@ func TestTimeline(t *testing.T) {
 	if !strings.Contains(lines[3], "cccc3333") {
 		t.Errorf("last line should be the latest item (shrimp memo): %q", lines[3])
 	}
+	if strings.Contains(lines[3], "[") {
+		t.Errorf("memo line should contain no checkbox syntax: %q", lines[3])
+	}
 }
 
 func TestTimelineEmpty(t *testing.T) {
 	var buf strings.Builder
-	Timeline(&buf, nil)
+	Timeline(&buf, nil, false)
 	if !strings.Contains(buf.String(), "There is no body...") {
 		t.Errorf("empty timeline output = %q", buf.String())
+	}
+}
+
+func TestTimeline_OpenTaskChecklistFormat(t *testing.T) {
+	open := false
+	item := model.Item{Hash: "bbbb2222", Content: "feed the shrimp", CreatedAt: "2026-07-05T08:43:05.026Z", Closed: &open}
+
+	var buf strings.Builder
+	Timeline(&buf, []model.Item{item}, false)
+	out := strings.TrimRight(buf.String(), "\n")
+
+	want := "- [ ] " + formatTime(item.CreatedAt) + " feed the shrimp (`bbbb2222`)"
+	if out != want {
+		t.Errorf("Timeline open task = %q, want %q", out, want)
+	}
+}
+
+func TestTimeline_StartedTaskInProgressToken(t *testing.T) {
+	open := false
+	startedAt := "2026-07-05T09:00:00.000Z"
+	item := model.Item{Hash: "dddd4444", Content: "slice cabbage", CreatedAt: "2026-07-05T08:43:05.050Z", StartedAt: &startedAt, Closed: &open}
+
+	var buf strings.Builder
+	Timeline(&buf, []model.Item{item}, false)
+	out := strings.TrimRight(buf.String(), "\n")
+
+	want := "- [ ] `in-progress` " + formatTime(item.CreatedAt) + " slice cabbage (`dddd4444`)"
+	if out != want {
+		t.Errorf("Timeline started task = %q, want %q", out, want)
+	}
+}
+
+func TestTimeline_ClosedTaskChecklistFormat(t *testing.T) {
+	closed := true
+	item := model.Item{Hash: "aaaa1111", Content: "buy cabbage", CreatedAt: "2026-07-05T08:43:04.971Z", Closed: &closed}
+
+	var buf strings.Builder
+	Timeline(&buf, []model.Item{item}, false)
+	out := strings.TrimRight(buf.String(), "\n")
+
+	want := "- [x] " + formatTime(item.CreatedAt) + " buy cabbage (`aaaa1111`)"
+	if out != want {
+		t.Errorf("Timeline closed task = %q, want %q", out, want)
+	}
+}
+
+func TestTimeline_MemoNoCheckbox(t *testing.T) {
+	item := model.Item{Hash: "cccc3333", Content: "shrimp looks happy today", CreatedAt: "2026-07-05T08:43:05.073Z"}
+
+	var buf strings.Builder
+	Timeline(&buf, []model.Item{item}, false)
+	out := strings.TrimRight(buf.String(), "\n")
+
+	want := "- " + formatTime(item.CreatedAt) + " shrimp looks happy today (`cccc3333`)"
+	if out != want {
+		t.Errorf("Timeline memo = %q, want %q", out, want)
+	}
+	if strings.Contains(out, "[") {
+		t.Errorf("memo line should contain no checkbox syntax: %q", out)
+	}
+}
+
+func TestTimeline_TagsAfterHash(t *testing.T) {
+	item := model.Item{Hash: "cccc3333", Content: "shrimp looks happy today", CreatedAt: "2026-07-05T08:43:05.073Z", Tags: []string{"shrimp", "pet"}}
+
+	var buf strings.Builder
+	Timeline(&buf, []model.Item{item}, false)
+	out := strings.TrimRight(buf.String(), "\n")
+
+	want := "- " + formatTime(item.CreatedAt) + " shrimp looks happy today (`cccc3333`) #shrimp #pet"
+	if out != want {
+		t.Errorf("Timeline tags = %q, want %q", out, want)
+	}
+	if !strings.HasSuffix(out, "#shrimp #pet") {
+		t.Errorf("tags should follow the hash token: %q", out)
+	}
+}
+
+func TestTimeline_MultilineContentShowsFirstLineByDefault(t *testing.T) {
+	item := model.Item{Hash: "eeee5555", Content: "buy cabbage\nand also shrimp\nfor dinner", CreatedAt: "2026-07-05T08:43:05.073Z"}
+
+	var buf strings.Builder
+	Timeline(&buf, []model.Item{item}, false)
+	out := buf.String()
+
+	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("lines = %d, want 1 (one line per item): %q", len(lines), out)
+	}
+	if strings.Contains(out, "and also shrimp") || strings.Contains(out, "for dinner") {
+		t.Errorf("default output should show only the first line: %q", out)
+	}
+	if !strings.Contains(out, "buy cabbage (`eeee5555`)") {
+		t.Errorf("default output should contain the first line and hash: %q", out)
+	}
+}
+
+func TestTimeline_FullTextShowsAllLines(t *testing.T) {
+	item := model.Item{Hash: "eeee5555", Content: "buy cabbage\nand also shrimp\nfor dinner", CreatedAt: "2026-07-05T08:43:05.073Z"}
+
+	var buf strings.Builder
+	Timeline(&buf, []model.Item{item}, true)
+	out := buf.String()
+
+	for _, want := range []string{"buy cabbage", "and also shrimp", "for dinner", "(`eeee5555`)"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("full-text output should contain %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestFirstLine(t *testing.T) {
+	cases := []struct {
+		content string
+		want    string
+	}{
+		{"single line", "single line"},
+		{"first\nsecond", "first"},
+		{"first\nsecond\nthird", "first"},
+		{"", ""},
+	}
+	for _, c := range cases {
+		if got := firstLine(c.content); got != c.want {
+			t.Errorf("firstLine(%q) = %q, want %q", c.content, got, c.want)
+		}
+	}
+}
+
+func TestChecklistPrefix(t *testing.T) {
+	cases := []struct {
+		status model.Status
+		want   string
+	}{
+		{model.StatusMemo, "-"},
+		{model.StatusOpen, "- [ ]"},
+		{model.StatusStarted, "- [ ] `in-progress`"},
+		{model.StatusClosed, "- [x]"},
+	}
+	for _, c := range cases {
+		if got := checklistPrefix(c.status); got != c.want {
+			t.Errorf("checklistPrefix(%v) = %q, want %q", c.status, got, c.want)
+		}
 	}
 }
 
