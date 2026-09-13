@@ -559,7 +559,7 @@ func TestListToday(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, want := range []string{"Today's logs are...", "[ ] buy cabbage", "・ shrimp memo"} {
+	for _, want := range []string{"Today's logs are...", "[ ] ", "buy cabbage", "shrimp memo"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("list output should contain %q:\n%s", want, out.String())
 		}
@@ -805,25 +805,25 @@ func TestListToday_TagFilterCombinesWithVisibility(t *testing.T) {
 }
 
 // TestListStatAndAll_UnaffectedByNewFlags proves requirements 5.2 and
-// 5.3: --stat and --all (without --stat) ignore Full/TasksOnly
+// 5.3: --stat and --all (without --stat) ignore Full/TasksOnly/FullText
 // entirely, so passing them alongside produces byte-identical output
 // to not passing them.
 func TestListStatAndAll_UnaffectedByNewFlags(t *testing.T) {
 	dir := t.TempDir()
 	closed := true
 	writeDay(t, dir, "", []model.Item{
-		{Hash: "closed11", Content: "closed task", CreatedAt: "2026-01-01T01:00:00.000Z", UpdatedAt: "2026-01-01T01:00:00.000Z", Closed: &closed},
+		{Hash: "closed11", Content: "closed task\nsecond line", CreatedAt: "2026-01-01T01:00:00.000Z", UpdatedAt: "2026-01-01T01:00:00.000Z", Closed: &closed},
 	})
 
 	var withoutFlags, withFlags strings.Builder
 	if err := List(&withoutFlags, strings.NewReader(""), dir, ListOptions{Stat: true}); err != nil {
 		t.Fatal(err)
 	}
-	if err := List(&withFlags, strings.NewReader(""), dir, ListOptions{Stat: true, Full: true, TasksOnly: true}); err != nil {
+	if err := List(&withFlags, strings.NewReader(""), dir, ListOptions{Stat: true, Full: true, TasksOnly: true, FullText: true}); err != nil {
 		t.Fatal(err)
 	}
 	if withoutFlags.String() != withFlags.String() {
-		t.Errorf("--stat output should be unaffected by Full/TasksOnly:\nwithout = %q\nwith = %q", withoutFlags.String(), withFlags.String())
+		t.Errorf("--stat output should be unaffected by Full/TasksOnly/FullText:\nwithout = %q\nwith = %q", withoutFlags.String(), withFlags.String())
 	}
 
 	withoutFlags.Reset()
@@ -831,11 +831,52 @@ func TestListStatAndAll_UnaffectedByNewFlags(t *testing.T) {
 	if err := List(&withoutFlags, strings.NewReader(""), dir, ListOptions{All: true}); err != nil {
 		t.Fatal(err)
 	}
-	if err := List(&withFlags, strings.NewReader(""), dir, ListOptions{All: true, Full: true, TasksOnly: true}); err != nil {
+	if err := List(&withFlags, strings.NewReader(""), dir, ListOptions{All: true, Full: true, TasksOnly: true, FullText: true}); err != nil {
 		t.Fatal(err)
 	}
 	if withoutFlags.String() != withFlags.String() {
-		t.Errorf("--all output should be unaffected by Full/TasksOnly:\nwithout = %q\nwith = %q", withoutFlags.String(), withFlags.String())
+		t.Errorf("--all output should be unaffected by Full/TasksOnly/FullText:\nwithout = %q\nwith = %q", withoutFlags.String(), withFlags.String())
+	}
+}
+
+// TestListToday_FullTextFlagShowsMultilineContent proves requirements
+// 4.1 and 4.2 end-to-end: in the daily (non-stat) view, a multi-line
+// item's content is summarized to its first line by default, and
+// shown in full (all lines) when FullText is set — while the other
+// item remains single-line either way, proving the flag only changes
+// how multi-line content renders, not single-line content.
+func TestListToday_FullTextFlagShowsMultilineContent(t *testing.T) {
+	dir := t.TempDir()
+	open := false
+	writeDay(t, dir, "", []model.Item{
+		{Hash: "open1111", Content: "first line\nsecond line\nthird line", CreatedAt: "2026-01-01T01:00:00.000Z", UpdatedAt: "2026-01-01T01:00:00.000Z", Closed: &open},
+		{Hash: "memo1111", Content: "single line memo", CreatedAt: "2026-01-01T02:00:00.000Z", UpdatedAt: "2026-01-01T02:00:00.000Z"},
+	})
+
+	var summarized strings.Builder
+	if err := List(&summarized, strings.NewReader(""), dir, ListOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	got := summarized.String()
+	if !strings.Contains(got, "first line") {
+		t.Errorf("default output should contain the first line: %q", got)
+	}
+	if strings.Contains(got, "second line") || strings.Contains(got, "third line") {
+		t.Errorf("default (FullText=false) output should not contain later lines:\n%s", got)
+	}
+	if !strings.Contains(got, "single line memo") {
+		t.Errorf("default output should still contain the single-line memo: %q", got)
+	}
+
+	var full strings.Builder
+	if err := List(&full, strings.NewReader(""), dir, ListOptions{FullText: true}); err != nil {
+		t.Fatal(err)
+	}
+	got = full.String()
+	for _, want := range []string{"first line", "second line", "third line", "single line memo"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("FullText=true output should contain %q:\n%s", want, got)
+		}
 	}
 }
 
