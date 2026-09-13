@@ -18,32 +18,50 @@ func Header(w io.Writer, title string) {
 }
 
 // Timeline prints items (tasks and memos mixed) as a single list in
-// the order given, one line per item: a marker ("・" for a memo,
-// "[ ]"/"[x]"/"[>]" for a task), the creation time, the content, and
-// the hash/tags for reference.
-func Timeline(w io.Writer, items []model.Item) {
+// the order given: a GFM checklist prefix (or a plain bullet for
+// memos), the creation time, the content, and the hash/tags for
+// reference. The hash is always wrapped as "(`hash`)" so it can be
+// extracted from any line with the same pattern. When fullText is
+// false, multi-line content is shown as its first line only, so one
+// line always maps to one item; when true, content is shown in full.
+func Timeline(w io.Writer, items []model.Item, fullText bool) {
 	if len(items) == 0 {
 		fmt.Fprintln(w, "There is no body...")
 		return
 	}
 
 	for _, item := range items {
-		fmt.Fprintf(w, "%s %s %s %s (%s)%s\n", bullet, formatTime(item.CreatedAt), marker(item.Status()), item.Content, item.Hash, formatTags(item.Tags))
+		content := item.Content
+		if !fullText {
+			content = firstLine(content)
+		}
+		fmt.Fprintf(w, "%s %s %s (`%s`)%s\n", checklistPrefix(item.Status()), formatTime(item.CreatedAt), content, item.Hash, formatTags(item.Tags))
 	}
 }
 
-// marker renders a lifecycle status as its display marker.
-func marker(status model.Status) string {
+// checklistPrefix renders the leading bullet and, for tasks, GFM
+// checklist syntax for an item's lifecycle status: "[ ]" for both
+// open and started (GFM has no third checkbox state), with a
+// literal "`in-progress`" token distinguishing started from open;
+// "[x]" for closed; no checkbox at all for memos.
+func checklistPrefix(status model.Status) string {
 	switch status {
 	case model.StatusClosed:
-		return "[x]"
+		return bullet + " [x]"
 	case model.StatusStarted:
-		return "[>]"
+		return bullet + " [ ] `in-progress`"
 	case model.StatusOpen:
-		return "[ ]"
+		return bullet + " [ ]"
 	default:
-		return "・"
+		return bullet
 	}
+}
+
+// firstLine returns content's first line, or content itself if it
+// has no newline.
+func firstLine(content string) string {
+	line, _, _ := strings.Cut(content, "\n")
+	return line
 }
 
 // Carried prints the automatic-carry notice, ahead of whatever output
