@@ -19,12 +19,20 @@ var (
 	ErrAlreadyStarted = errors.New("target item is already started")
 	// ErrEmptyTag is returned when a tag is empty after trimming.
 	ErrEmptyTag = errors.New("tag must not be empty")
+	// ErrEmptyContent is returned when content is empty after trimming.
+	ErrEmptyContent = errors.New("content must not be empty")
 )
 
 // Add appends a new task or memo to the log and returns the created item.
 // The item is given a fresh hash even if it happens to collide with an
-// existing item's, so hashes stay unique within the log.
+// existing item's, so hashes stay unique within the log. content is
+// rejected with ErrEmptyContent when empty after trimming whitespace;
+// otherwise it is stored exactly as given, without trimming.
 func Add(l *model.Log, content string, isTask bool) (model.Item, error) {
+	if strings.TrimSpace(content) == "" {
+		return model.Item{}, ErrEmptyContent
+	}
+
 	var item model.Item
 	if isTask {
 		item = model.NewTaskItem(content)
