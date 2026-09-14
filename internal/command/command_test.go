@@ -217,6 +217,51 @@ func TestAddConfirmsEvenWhenIndexRebuildFails(t *testing.T) {
 	}
 }
 
+// TestAddRejectsEmptyContent guards against a regression where an
+// empty-content Add would still persist an item: the error from
+// log.Add must propagate before persistItem ever runs.
+func TestAddRejectsEmptyContent(t *testing.T) {
+	dir := t.TempDir()
+	if err := Add(io.Discard, dir, "seed memo", AddOptions{}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Add(io.Discard, dir, "", AddOptions{}); err == nil {
+		t.Errorf("Add with empty content should fail")
+	}
+	if items := todayItems(t, dir); len(items) != 1 {
+		t.Errorf("items = %+v, want only the seed memo (empty content must not be persisted)", items)
+	}
+}
+
+// TestTodoRejectsEmptyContentSkipsSideEffects guards against empty
+// content slipping through Todo's Start/Tags handling: since log.Add
+// fails before the new item exists, Start and AddTags must never run
+// for it, and the tag index must not be rebuilt as a result of this
+// call.
+func TestTodoRejectsEmptyContentSkipsSideEffects(t *testing.T) {
+	dir := t.TempDir()
+	if err := Todo(io.Discard, dir, "seed task", TodoOptions{}); err != nil {
+		t.Fatal(err)
+	}
+
+	err := Todo(io.Discard, dir, "", TodoOptions{Start: true, Tags: []string{"urgent"}})
+	if err == nil {
+		t.Errorf("Todo with empty content should fail")
+	}
+
+	items := todayItems(t, dir)
+	if len(items) != 1 {
+		t.Errorf("items = %+v, want only the seed task (empty content must not be persisted)", items)
+	}
+	if items[0].IsStarted() {
+		t.Errorf("seed task should not have been started as a side effect: %+v", items[0])
+	}
+	if _, statErr := os.Stat(index.Path(dir)); statErr == nil {
+		t.Errorf("tag index should not exist: AddTags must not have run for the rejected item")
+	}
+}
+
 func TestTagFlow(t *testing.T) {
 	dir := t.TempDir()
 	if err := Add(io.Discard, dir, "buy cabbage", AddOptions{Tags: []string{"cabbage", "shopping"}}); err != nil {
