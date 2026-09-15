@@ -1,6 +1,6 @@
 # Implementation Plan
 
-- [ ] 1. `--full` → `--full-list` へのコア実装（CLIフラグ・内部オプション・README）
+- [x] 1. `--full` → `--full-list` へのコア実装（CLIフラグ・内部オプション・README）
   - `internal/command/command.go`: `ListOptions` の `Full` フィールドを `FullList` にリネームする（doc commentはそのまま維持）。`listOneDay` 内の `if opts.Full { ... }` を `if opts.FullList { ... }` に更新する
   - `cmd/sava/commands.go`: `newListCommand` 内のフラグ登録を `cmd.Flags().BoolVarP(&opts.Full, "full", "f", false, "include completed tasks")` から `cmd.Flags().BoolVarP(&opts.FullList, "full-list", "f", false, "include completed tasks")` に変更する（ショートハンド `-f` とヘルプ文言はそのまま維持）
   - `README.md`: `--full` の使用例（97, 99, 101行目）をすべて `--full-list` に更新する
