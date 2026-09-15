@@ -325,10 +325,10 @@ func TestListYesterdayKeyword(t *testing.T) {
 	}
 }
 
-// TestListFullAndTaskFlags proves "--full"/"-f" and "--task" are
+// TestListFullAndTaskFlags proves "--full-list"/"-f" and "--task" are
 // registered on the list command and bridged to the right
 // command.ListOptions fields: a closed task is hidden by default,
-// shown with --full, and a memo is excluded with --task.
+// shown with --full-list, and a memo is excluded with --task.
 func TestListFullAndTaskFlags(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
@@ -350,9 +350,9 @@ func TestListFullAndTaskFlags(t *testing.T) {
 		t.Errorf("memo should still be shown by default:\n%s", out)
 	}
 
-	out = mustExecute(t, "list", "--full")
+	out = mustExecute(t, "list", "--full-list")
 	if !strings.Contains(out, "buy cabbage") {
-		t.Errorf("--full should include the closed task:\n%s", out)
+		t.Errorf("--full-list should include the closed task:\n%s", out)
 	}
 
 	out = mustExecute(t, "list", "-f")
@@ -365,9 +365,20 @@ func TestListFullAndTaskFlags(t *testing.T) {
 		t.Errorf("--task should exclude memos:\n%s", out)
 	}
 
-	out = mustExecute(t, "list", "--full", "--task")
+	out = mustExecute(t, "list", "--full-list", "--task")
 	if !strings.Contains(out, "buy cabbage") || strings.Contains(out, "shrimp memo") {
-		t.Errorf("--full --task should show the closed task but exclude memos:\n%s", out)
+		t.Errorf("--full-list --task should show the closed task but exclude memos:\n%s", out)
+	}
+}
+
+// TestListOldFullFlagIsRejected guards against silently un-deprecating
+// the removed "--full" flag: it must be rejected as an unknown flag by
+// root.Execute(), since --full-list is the only supported spelling now.
+func TestListOldFullFlagIsRejected(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	if _, err := execute(t, "list", "--full"); err == nil {
+		t.Error("list --full (old flag name) should fail as an unknown flag")
 	}
 }
 
@@ -391,6 +402,31 @@ func TestFullTextFlag(t *testing.T) {
 	out = mustExecute(t, "list", "--full-text")
 	if !strings.Contains(out, "first line\nsecond line") {
 		t.Errorf("list --full-text should show the full multi-line content:\n%s", out)
+	}
+}
+
+// TestFullListAndFullTextFlagsAreIndependent proves "--full-list" and
+// "--full-text" apply their effects independently when combined: a
+// closed task appears (from --full-list) and a multi-line item's full
+// content is shown (from --full-text), neither suppressing the other.
+func TestFullListAndFullTextFlagsAreIndependent(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	mustExecute(t, "todo", "buy cabbage\nand shrimp")
+
+	list := mustExecute(t, "list")
+	hashes := openTaskHashes(list)
+	if len(hashes) != 1 {
+		t.Fatalf("hashes = %+v, want 1:\n%s", hashes, list)
+	}
+	mustExecute(t, "end", hashes[0])
+
+	out := mustExecute(t, "list", "--full-list", "--full-text")
+	if !strings.Contains(out, "buy cabbage") {
+		t.Errorf("--full-list --full-text should include the closed task (--full-list effect):\n%s", out)
+	}
+	if !strings.Contains(out, "buy cabbage\nand shrimp") {
+		t.Errorf("--full-list --full-text should show the full multi-line content (--full-text effect):\n%s", out)
 	}
 }
 

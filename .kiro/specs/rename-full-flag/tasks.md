@@ -16,7 +16,7 @@
   - _Requirements: 1.3, 1.4_
   - _Boundary: internal/command/command_test.go_
 
-- [ ] 2.2 (P) CLI統合テストの更新と未定義フラグの回帰テスト追加
+- [x] 2.2 (P) CLI統合テストの更新と未定義フラグの回帰テスト追加
   - `cmd/sava/root_test.go` の `TestListFullAndTaskFlags` 内、`mustExecute(t, "list", "--full")` および `mustExecute(t, "list", "--full", "--task")` の `"--full"` を `"--full-list"` に更新し、関数のdoc comment（`--full`/`-f` の表記）もあわせて更新する
   - `sava list --full`（旧フラグ名）を実行した際に `root.Execute()`（`execute` ヘルパー経由）がエラーを返すことを検証する新規テストケースを追加する
   - `TestFullTextFlag` に、`--full-list --full-text` を同時指定した場合に両方の効果（完了済みタスクを含める・contentを全文表示する）が独立して現れることを検証するケースを追加する
