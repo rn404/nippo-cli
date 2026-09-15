@@ -9,7 +9,7 @@
   - _Boundary: ListCommandFlags, ListOptionsVisibility_
 
 - [ ] 2. 既存テストの更新と回帰テストの追加
-- [ ] 2.1 (P) internal/command テストのフィールド名更新
+- [x] 2.1 (P) internal/command テストのフィールド名更新
   - `internal/command/command_test.go` 内の全 `ListOptions{..., Full: true, ...}` 参照（同ファイル内7箇所: `TestListToday_FullShowsClosedTasksInOrder`、`TestListToday_TaskAndFullShowsAllTasksNoMemos`、`TestListToday_FullOrdersClosedGroupByCreatedAtAscending`、`TestListToday_FullHasNoGroupHeadersBetweenSections`、`TestListToday_TagFilterCombinesWithVisibility`、`TestListStatAndAll_UnaffectedByNewFlags` 内2箇所）を `FullList: true` に更新する
   - `TestListStatAndAll_UnaffectedByNewFlags` 内のエラーメッセージ文言（`"...unaffected by Full/TasksOnly/FullText"`、2箇所）を `FullList/TasksOnly/FullText` に更新する
   - Observable: `go test ./internal/command/...` が全てパスする
