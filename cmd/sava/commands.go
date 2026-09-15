@@ -16,15 +16,58 @@ import (
 func newAddCommand() *cobra.Command {
 	opts := command.AddOptions{}
 	cmd := &cobra.Command{
-		Use:   "add <contents>",
+		Use:   "add [contents]",
 		Short: "Add a memo to nippo log.",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return command.Add(cmd.OutOrStdout(), logfile.Dir(), args[0], opts)
+			w := cmd.OutOrStdout()
+
+			content, ok, err := resolveNewContent(args)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				command.AddAborted(w)
+				return nil
+			}
+			return command.Add(w, logfile.Dir(), content, opts)
 		},
 	}
 	cmd.Flags().StringSliceVarP(&opts.Tags, "tag", "t", nil, "put tags on the new item")
 	return cmd
+}
+
+// resolveNewContent resolves the content to create a new add/todo item
+// with. When args already supplies it directly (len(args) == 1), ok is
+// always true and content is returned unvalidated -- the existing
+// empty-content rejection for direct mode happens downstream in
+// command.Add/command.Todo (via log.Add), unchanged by this function.
+//
+// When args is empty, it launches the editor via editor.Resolve with
+// an empty initial content. ok is false when the editor left it
+// unchanged (still empty, editor.Resolve's own judgment) or when the
+// saved content is whitespace-only: editor.Resolve's own emptiness
+// check only catches an exact "" (its current is always "" here, so
+// even a single space differs from both), so the whitespace-only case
+// is caught here instead, to stay consistent with log.Add's trim-based
+// validation without surfacing it as a hard error from the editor
+// path.
+func resolveNewContent(args []string) (content string, ok bool, err error) {
+	if len(args) == 1 {
+		return args[0], true, nil
+	}
+
+	content, ok, err = editor.Resolve("", runEditor)
+	if err != nil {
+		return "", false, err
+	}
+	if !ok {
+		return "", false, nil
+	}
+	if strings.TrimSpace(content) == "" {
+		return "", false, nil
+	}
+	return content, true, nil
 }
 
 // newTodoCommand and newAddCommand must never gain subcommands: cobra
@@ -34,11 +77,21 @@ func newAddCommand() *cobra.Command {
 func newTodoCommand() *cobra.Command {
 	opts := command.TodoOptions{}
 	cmd := &cobra.Command{
-		Use:   "todo <contents>",
+		Use:   "todo [contents]",
 		Short: "Add a TODO item to nippo log.",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return command.Todo(cmd.OutOrStdout(), logfile.Dir(), args[0], opts)
+			w := cmd.OutOrStdout()
+
+			content, ok, err := resolveNewContent(args)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				command.TodoAborted(w)
+				return nil
+			}
+			return command.Todo(w, logfile.Dir(), content, opts)
 		},
 	}
 	cmd.Flags().BoolVarP(&opts.Start, "start", "s", false, "start the task right away")

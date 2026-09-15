@@ -391,6 +391,22 @@ func EditAborted(w io.Writer) {
 	view.EditAborted(w)
 }
 
+// AddAborted notifies the user that an add was aborted (e.g. the
+// editor was saved empty or whitespace-only). It is a thin delegation
+// to view.AddAborted so that cmd/sava never needs to import
+// internal/view directly.
+func AddAborted(w io.Writer) {
+	view.AddAborted(w)
+}
+
+// TodoAborted notifies the user that a todo was aborted (e.g. the
+// editor was saved empty or whitespace-only). It is a thin delegation
+// to view.TodoAborted so that cmd/sava never needs to import
+// internal/view directly.
+func TodoAborted(w io.Writer) {
+	view.TodoAborted(w)
+}
+
 // dedupe returns hashes with repeats removed, keeping first occurrence order.
 func dedupe(hashes []string) []string {
 	seen := make(map[string]bool, len(hashes))

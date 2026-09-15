@@ -320,6 +320,22 @@ func TestEditAborted(t *testing.T) {
 	}
 }
 
+func TestAddAborted(t *testing.T) {
+	var buf strings.Builder
+	AddAborted(&buf)
+	if !strings.Contains(buf.String(), "Add aborted: nothing to save.") {
+		t.Errorf("AddAborted output = %q", buf.String())
+	}
+}
+
+func TestTodoAborted(t *testing.T) {
+	var buf strings.Builder
+	TodoAborted(&buf)
+	if !strings.Contains(buf.String(), "Todo aborted: nothing to save.") {
+		t.Errorf("TodoAborted output = %q", buf.String())
+	}
+}
+
 func TestTagsUpdated(t *testing.T) {
 	var buf strings.Builder
 	TagsUpdated(&buf, model.Item{Content: "buy cabbage", CreatedAt: "2026-07-05T08:43:04.971Z", Tags: []string{"cabbage"}})
