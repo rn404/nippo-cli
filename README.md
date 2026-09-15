@@ -94,11 +94,11 @@ sava diff <date>:<hashA> <date>:<hashB>
 sava list
 
 # Also show completed tasks (closed -> open -> memo order)
-sava list --full
+sava list --full-list
 
-# Show tasks only, excluding memos (combine with --full to include closed tasks)
+# Show tasks only, excluding memos (combine with --full-list to include closed tasks)
 sava list --task
-sava list --task --full
+sava list --task --full-list
 
 # Show full (multi-line) content instead of just the first line
 sava list --full-text

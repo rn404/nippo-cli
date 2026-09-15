@@ -511,7 +511,7 @@ type ListOptions struct {
 	Yes       bool     // skip confirmation prompts
 	Tags      []string // show only items carrying the tags
 	Or        bool     // match any tag instead of all
-	Full      bool     // include closed tasks in the daily (non-stat) view
+	FullList  bool     // include closed tasks in the daily (non-stat) view
 	TasksOnly bool     // exclude memos from the daily (non-stat) view
 	FullText  bool     // show full multi-line content in the daily (non-stat) view
 }
@@ -593,7 +593,7 @@ func listOneDay(w io.Writer, dir string, opts ListOptions) error {
 
 	closedTasks, openTasks, memos := log.SplitByStatus(file.Body)
 	var items []model.Item
-	if opts.Full {
+	if opts.FullList {
 		items = append(items, closedTasks...)
 	}
 	items = append(items, openTasks...)

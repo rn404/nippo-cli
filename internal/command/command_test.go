@@ -671,7 +671,7 @@ func TestListToday_FullShowsClosedTasksInOrder(t *testing.T) {
 	})
 
 	var out strings.Builder
-	if err := List(&out, strings.NewReader(""), dir, ListOptions{Full: true}); err != nil {
+	if err := List(&out, strings.NewReader(""), dir, ListOptions{FullList: true}); err != nil {
 		t.Fatal(err)
 	}
 	got := out.String()
@@ -727,7 +727,7 @@ func TestListToday_TaskAndFullShowsAllTasksNoMemos(t *testing.T) {
 	})
 
 	var out strings.Builder
-	if err := List(&out, strings.NewReader(""), dir, ListOptions{TasksOnly: true, Full: true}); err != nil {
+	if err := List(&out, strings.NewReader(""), dir, ListOptions{TasksOnly: true, FullList: true}); err != nil {
 		t.Fatal(err)
 	}
 	got := out.String()
@@ -755,7 +755,7 @@ func TestListToday_FullOrdersClosedGroupByCreatedAtAscending(t *testing.T) {
 	})
 
 	var out strings.Builder
-	if err := List(&out, strings.NewReader(""), dir, ListOptions{Full: true}); err != nil {
+	if err := List(&out, strings.NewReader(""), dir, ListOptions{FullList: true}); err != nil {
 		t.Fatal(err)
 	}
 	got := out.String()
@@ -784,7 +784,7 @@ func TestListToday_FullHasNoGroupHeadersBetweenSections(t *testing.T) {
 	})
 
 	var out strings.Builder
-	if err := List(&out, strings.NewReader(""), dir, ListOptions{Full: true}); err != nil {
+	if err := List(&out, strings.NewReader(""), dir, ListOptions{FullList: true}); err != nil {
 		t.Fatal(err)
 	}
 	got := out.String()
@@ -830,7 +830,7 @@ func TestListToday_TagFilterCombinesWithVisibility(t *testing.T) {
 	})
 
 	var out strings.Builder
-	if err := List(&out, strings.NewReader(""), dir, ListOptions{Full: true, Tags: []string{"cabbage"}}); err != nil {
+	if err := List(&out, strings.NewReader(""), dir, ListOptions{FullList: true, Tags: []string{"cabbage"}}); err != nil {
 		t.Fatal(err)
 	}
 	got := out.String()
@@ -865,11 +865,11 @@ func TestListStatAndAll_UnaffectedByNewFlags(t *testing.T) {
 	if err := List(&withoutFlags, strings.NewReader(""), dir, ListOptions{Stat: true}); err != nil {
 		t.Fatal(err)
 	}
-	if err := List(&withFlags, strings.NewReader(""), dir, ListOptions{Stat: true, Full: true, TasksOnly: true, FullText: true}); err != nil {
+	if err := List(&withFlags, strings.NewReader(""), dir, ListOptions{Stat: true, FullList: true, TasksOnly: true, FullText: true}); err != nil {
 		t.Fatal(err)
 	}
 	if withoutFlags.String() != withFlags.String() {
-		t.Errorf("--stat output should be unaffected by Full/TasksOnly/FullText:\nwithout = %q\nwith = %q", withoutFlags.String(), withFlags.String())
+		t.Errorf("--stat output should be unaffected by FullList/TasksOnly/FullText:\nwithout = %q\nwith = %q", withoutFlags.String(), withFlags.String())
 	}
 
 	withoutFlags.Reset()
@@ -877,11 +877,11 @@ func TestListStatAndAll_UnaffectedByNewFlags(t *testing.T) {
 	if err := List(&withoutFlags, strings.NewReader(""), dir, ListOptions{All: true}); err != nil {
 		t.Fatal(err)
 	}
-	if err := List(&withFlags, strings.NewReader(""), dir, ListOptions{All: true, Full: true, TasksOnly: true, FullText: true}); err != nil {
+	if err := List(&withFlags, strings.NewReader(""), dir, ListOptions{All: true, FullList: true, TasksOnly: true, FullText: true}); err != nil {
 		t.Fatal(err)
 	}
 	if withoutFlags.String() != withFlags.String() {
-		t.Errorf("--all output should be unaffected by Full/TasksOnly/FullText:\nwithout = %q\nwith = %q", withoutFlags.String(), withFlags.String())
+		t.Errorf("--all output should be unaffected by FullList/TasksOnly/FullText:\nwithout = %q\nwith = %q", withoutFlags.String(), withFlags.String())
 	}
 }
 
