@@ -13,6 +13,7 @@ import (
 	"github.com/rn404/nippo-cli/internal/index"
 	"github.com/rn404/nippo-cli/internal/logfile"
 	"github.com/rn404/nippo-cli/internal/model"
+	"github.com/rn404/nippo-cli/internal/view"
 )
 
 func todayItems(t *testing.T, dir string) []model.Item {
@@ -1465,6 +1466,29 @@ func TestEditAborted_PrintsMessage(t *testing.T) {
 	EditAborted(&out)
 	if out.Len() == 0 {
 		t.Error("EditAborted should print a message")
+	}
+}
+
+// TestAddAborted_DelegatesToView proves AddAborted is a thin
+// delegation to view.AddAborted by asserting its output is identical
+// to calling view.AddAborted directly, rather than merely non-empty.
+func TestAddAborted_DelegatesToView(t *testing.T) {
+	var got, want strings.Builder
+	AddAborted(&got)
+	view.AddAborted(&want)
+	if got.String() != want.String() {
+		t.Errorf("AddAborted output = %q, want it to match view.AddAborted output %q", got.String(), want.String())
+	}
+}
+
+// TestTodoAborted_DelegatesToView mirrors
+// TestAddAborted_DelegatesToView for TodoAborted/view.TodoAborted.
+func TestTodoAborted_DelegatesToView(t *testing.T) {
+	var got, want strings.Builder
+	TodoAborted(&got)
+	view.TodoAborted(&want)
+	if got.String() != want.String() {
+		t.Errorf("TodoAborted output = %q, want it to match view.TodoAborted output %q", got.String(), want.String())
 	}
 }
 

@@ -112,6 +112,20 @@ func EditAborted(w io.Writer) {
 	fmt.Fprintln(w, "Edit aborted: no changes to save.")
 }
 
+// AddAborted prints a notice that an add was aborted (the editor was
+// saved with empty, or whitespace-only, content) and no memo was
+// created.
+func AddAborted(w io.Writer) {
+	fmt.Fprintln(w, "Add aborted: nothing to save.")
+}
+
+// TodoAborted prints a notice that a todo was aborted (the editor was
+// saved with empty, or whitespace-only, content) and no task was
+// created.
+func TodoAborted(w io.Writer) {
+	fmt.Fprintln(w, "Todo aborted: nothing to save.")
+}
+
 // TagsUpdated prints the item's tags after a tag change.
 func TagsUpdated(w io.Writer, item model.Item) {
 	fmt.Fprintln(w, "Tags updated!!")

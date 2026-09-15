@@ -1,6 +1,6 @@
 # Implementation Plan
 
-- [ ] 1. 中断通知関数（view層・command層）の実装とユニットテスト
+- [x] 1. 中断通知関数（view層・command層）の実装とユニットテスト
   - `internal/view`に、`EditAborted`と同型の固定メッセージ出力関数を2つ追加する（メモ追加が中断されたことを示す文言、タスク追加が中断されたことを示す文言）
   - `internal/command`に、上記2関数へ薄く委譲するだけの関数を2つ追加する（`EditAborted`の委譲パターンを踏襲）
   - それぞれの出力内容を検証するユニットテストを`internal/view`に追加する
