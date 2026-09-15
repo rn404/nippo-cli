@@ -496,3 +496,133 @@ func TestEditEditorMode_AbortsOnUnchanged(t *testing.T) {
 		t.Errorf("content should be unchanged after an aborted edit:\n%s", list)
 	}
 }
+
+// TestAddEditorMode_CreatesMemo proves "sava add" (content argument
+// omitted) launches $EDITOR against an empty temp file and creates a
+// memo from whatever content that script saves.
+func TestAddEditorMode_CreatesMemo(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	script := writeFakeEditor(t, t.TempDir(), "fake-editor.sh", "#!/bin/sh\necho \"buy cabbage via editor\" > \"$1\"\n")
+	t.Setenv("EDITOR", script)
+
+	out := mustExecute(t, "add")
+	if !strings.Contains(out, "Added!!") || !strings.Contains(out, "buy cabbage via editor") {
+		t.Errorf("add output = %q", out)
+	}
+
+	list := mustExecute(t, "list")
+	if !strings.Contains(list, "buy cabbage via editor") {
+		t.Errorf("list after editor-mode add should show the new content:\n%s", list)
+	}
+}
+
+// TestAddEditorMode_AbortsWhenEmpty proves that saving the editor's
+// temp file with no content at all aborts the add: no error, an abort
+// message, and no memo created.
+func TestAddEditorMode_AbortsWhenEmpty(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	script := writeFakeEditor(t, t.TempDir(), "noop-editor.sh", "#!/bin/sh\ntrue\n")
+	t.Setenv("EDITOR", script)
+
+	out := mustExecute(t, "add")
+	if !strings.Contains(out, "Add aborted") {
+		t.Errorf("add output should report an abort:\n%s", out)
+	}
+	if strings.Contains(out, "Added!!") {
+		t.Errorf("add output should not confirm an add on abort:\n%s", out)
+	}
+
+	list := mustExecute(t, "list")
+	if !strings.Contains(list, "There is no body...") {
+		t.Errorf("no memo should be created after an aborted add:\n%s", list)
+	}
+}
+
+// TestAddEditorMode_AbortsWhenWhitespaceOnly proves that saving the
+// editor's temp file with only whitespace also aborts the add, even
+// though editor.Resolve's own ok-check (candidate == "" or ==
+// current) alone would not catch it (current is always "" here, so a
+// whitespace candidate is != current and != "").
+func TestAddEditorMode_AbortsWhenWhitespaceOnly(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	script := writeFakeEditor(t, t.TempDir(), "whitespace-editor.sh", "#!/bin/sh\nprintf '   \\n\\t \\n' > \"$1\"\n")
+	t.Setenv("EDITOR", script)
+
+	out := mustExecute(t, "add")
+	if !strings.Contains(out, "Add aborted") {
+		t.Errorf("add output should report an abort for a whitespace-only save:\n%s", out)
+	}
+
+	list := mustExecute(t, "list")
+	if !strings.Contains(list, "There is no body...") {
+		t.Errorf("no memo should be created after a whitespace-only aborted add:\n%s", list)
+	}
+}
+
+// TestAddEditorMode_PropagatesEditorError proves that a non-zero exit
+// from the $EDITOR script fails the command and creates no memo.
+func TestAddEditorMode_PropagatesEditorError(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	script := writeFakeEditor(t, t.TempDir(), "failing-editor.sh", "#!/bin/sh\nexit 1\n")
+	t.Setenv("EDITOR", script)
+
+	if _, err := execute(t, "add"); err == nil {
+		t.Error("add should fail when the editor exits non-zero")
+	}
+
+	list := mustExecute(t, "list")
+	if !strings.Contains(list, "There is no body...") {
+		t.Errorf("no memo should be created when the editor errors:\n%s", list)
+	}
+}
+
+// TestAddEditorMode_WithTagOption proves --tag is applied to a memo
+// created via the editor path, same as direct mode.
+func TestAddEditorMode_WithTagOption(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	script := writeFakeEditor(t, t.TempDir(), "fake-editor.sh", "#!/bin/sh\necho \"tagged via editor\" > \"$1\"\n")
+	t.Setenv("EDITOR", script)
+
+	mustExecute(t, "add", "-t", "cabbage")
+
+	out := mustExecute(t, "list", "-t", "cabbage")
+	if !strings.Contains(out, "tagged via editor") {
+		t.Errorf("editor-mode add with --tag should tag the created memo:\n%s", out)
+	}
+}
+
+// TestAddEditorMode_AbortedSkipsTagOption proves that --tag processing
+// does not run when the editor path aborts: no tag ends up registered
+// in the tag index at all.
+func TestAddEditorMode_AbortedSkipsTagOption(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	script := writeFakeEditor(t, t.TempDir(), "noop-editor.sh", "#!/bin/sh\ntrue\n")
+	t.Setenv("EDITOR", script)
+
+	mustExecute(t, "add", "-t", "cabbage")
+
+	out := mustExecute(t, "tag", "--list")
+	if !strings.Contains(out, "There is no tags...") {
+		t.Errorf("aborted editor-mode add should not register any tag:\n%s", out)
+	}
+}
+
+// TestAddDirectMode_UnaffectedByEditorChange proves content given
+// directly still bypasses the editor entirely: a broken/unusable
+// $EDITOR does not stop the add from succeeding, because it is never
+// invoked.
+func TestAddDirectMode_UnaffectedByEditorChange(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("EDITOR", "/no/such/editor-binary")
+
+	out := mustExecute(t, "add", "direct content")
+	if !strings.Contains(out, "Added!!") || !strings.Contains(out, "direct content") {
+		t.Errorf("add output = %q", out)
+	}
+}

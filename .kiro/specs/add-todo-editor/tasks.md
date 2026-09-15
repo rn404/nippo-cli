@@ -9,7 +9,7 @@
   - _Requirements: 2.3, 2.4_
   - _Boundary: view.AddAborted, view.TodoAborted, command.AddAborted, command.TodoAborted_
 
-- [ ] 2. `sava add`のcontent省略時エディタ分岐の実装とエンドツーエンドテスト
+- [x] 2. `sava add`のcontent省略時エディタ分岐の実装とエンドツーエンドテスト
   - `cmd/sava`に、content引数の有無に応じてcontentを解決するヘルパーを実装する：引数が指定されていればそのまま使い、省略されていれば既存の`editor.Resolve`を空の初期内容で呼び出し、保存内容が空文字列または空白文字のみであれば「中断」と判定する
   - `add`コマンドの引数指定を必須から任意（0個または1個）に変更し、上記ヘルパーの判定結果に応じて、メモを作成するか、1で実装した中断通知を表示するかを分岐する
   - `$EDITOR`に一時的なシェルスクリプトを設定し、実際に内容を書き込んで保存した場合にその内容でメモが作成されることを検証するエンドツーエンドテストを書く
