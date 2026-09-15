@@ -77,11 +77,21 @@ func resolveNewContent(args []string) (content string, ok bool, err error) {
 func newTodoCommand() *cobra.Command {
 	opts := command.TodoOptions{}
 	cmd := &cobra.Command{
-		Use:   "todo <contents>",
+		Use:   "todo [contents]",
 		Short: "Add a TODO item to nippo log.",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return command.Todo(cmd.OutOrStdout(), logfile.Dir(), args[0], opts)
+			w := cmd.OutOrStdout()
+
+			content, ok, err := resolveNewContent(args)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				command.TodoAborted(w)
+				return nil
+			}
+			return command.Todo(w, logfile.Dir(), content, opts)
 		},
 	}
 	cmd.Flags().BoolVarP(&opts.Start, "start", "s", false, "start the task right away")
