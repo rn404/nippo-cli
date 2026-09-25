@@ -153,10 +153,21 @@ func newEditCommand() *cobra.Command {
 }
 
 // runEditor is the production launch function injected into
-// editor.Resolve: it execs the named editor against path with the
-// real terminal's stdin/stdout/stderr attached.
+// editor.Resolve: it splits name (the resolved $EDITOR/$VISUAL value,
+// or "vi") into a command and its arguments on whitespace, then execs
+// it against path with the real terminal's stdin/stdout/stderr
+// attached.
 func runEditor(name, path string) error {
-	cmd := exec.Command(name, path) //nolint:gosec // name comes from the user's own $EDITOR/$VISUAL (or "vi"), the same trust boundary as `git commit` invoking $EDITOR; path is our own temp file
+	tokens := strings.Fields(name)
+	if len(tokens) == 0 {
+		return fmt.Errorf("editor command %q is empty after splitting", name)
+	}
+
+	args := make([]string, 0, len(tokens))
+	args = append(args, tokens[1:]...)
+	args = append(args, path)
+
+	cmd := exec.Command(tokens[0], args...) //nolint:gosec // name comes from the user's own $EDITOR/$VISUAL (or "vi"), the same trust boundary as `git commit` invoking $EDITOR; path is our own temp file
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

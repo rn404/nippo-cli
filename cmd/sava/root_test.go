@@ -850,3 +850,92 @@ func TestTodoDirectMode_UnaffectedByEditorChange(t *testing.T) {
 		t.Errorf("direct-mode todo with --tag should tag the created task:\n%s", tagOut)
 	}
 }
+
+// TestRunEditor_MultiTokenValue proves that a $EDITOR/$VISUAL value
+// containing a command plus arguments (e.g. "code --wait") is split
+// into a command and its arguments, with the temp file path appended
+// last as the final argument, rather than being treated as one
+// literal (and nonexistent) executable name.
+func TestRunEditor_MultiTokenValue(t *testing.T) {
+	dir := t.TempDir()
+	recorder := filepath.Join(dir, "recorded-args")
+	script := writeFakeEditor(t, dir, "fake-editor.sh",
+		"#!/bin/sh\nprintf '%s\\n' \"$@\" > \""+recorder+"\"\n")
+
+	target := filepath.Join(dir, "target.md")
+	if err := os.WriteFile(target, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := runEditor(script+" --flag extra", target); err != nil {
+		t.Fatalf("runEditor returned error: %v", err)
+	}
+
+	got, err := os.ReadFile(recorder)
+	if err != nil {
+		t.Fatalf("reading recorded args: %v", err)
+	}
+	want := "--flag\nextra\n" + target + "\n"
+	if string(got) != want {
+		t.Errorf("recorded args = %q, want %q", got, want)
+	}
+}
+
+// TestRunEditor_SingleTokenValue proves the existing single-token
+// behavior (e.g. plain "vim") is unchanged: the token is the command
+// and the temp file path is the only argument.
+func TestRunEditor_SingleTokenValue(t *testing.T) {
+	dir := t.TempDir()
+	recorder := filepath.Join(dir, "recorded-args")
+	script := writeFakeEditor(t, dir, "fake-editor.sh",
+		"#!/bin/sh\nprintf '%s\\n' \"$@\" > \""+recorder+"\"\n")
+
+	target := filepath.Join(dir, "target.md")
+	if err := os.WriteFile(target, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := runEditor(script, target); err != nil {
+		t.Fatalf("runEditor returned error: %v", err)
+	}
+
+	got, err := os.ReadFile(recorder)
+	if err != nil {
+		t.Fatalf("reading recorded args: %v", err)
+	}
+	want := target + "\n"
+	if string(got) != want {
+		t.Errorf("recorded args = %q, want %q", got, want)
+	}
+}
+
+// TestRunEditor_WhitespaceOnlyValue proves that a whitespace-only
+// $EDITOR/$VISUAL value (tokenizing to zero tokens) produces an error
+// instead of attempting to launch a process, and does not panic on an
+// empty-slice index.
+func TestRunEditor_WhitespaceOnlyValue(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "target.md")
+	if err := os.WriteFile(target, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := runEditor("   \t  ", target); err == nil {
+		t.Error("runEditor with a whitespace-only value should return an error")
+	}
+}
+
+// TestRunEditor_CommandNotFoundAfterSplit proves that when the
+// post-split command isn't found on $PATH, runEditor returns that
+// error unchanged, with no automatic fallback to a different editor.
+func TestRunEditor_CommandNotFoundAfterSplit(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "target.md")
+	if err := os.WriteFile(target, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := runEditor("no-such-sava-test-editor-xyz --flag", target); err == nil {
+		t.Error("runEditor with a nonexistent command (post-split) should return an error")
+	}
+}
