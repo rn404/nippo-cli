@@ -133,6 +133,9 @@ func TestTimeline_TagsAfterHash(t *testing.T) {
 }
 
 func TestTimeline_MultilineContentShowsFirstLineByDefault(t *testing.T) {
+	// Short multi-line content (collapsed length <= 50 runes): newlines
+	// are collapsed to spaces, all lines are shown, and no ellipsis is
+	// appended. Requirements 1.1, 1.3.
 	item := model.Item{Hash: "eeee5555", Content: "buy cabbage\nand also shrimp\nfor dinner", CreatedAt: "2026-07-05T08:43:05.073Z"}
 
 	var buf strings.Builder
@@ -143,41 +146,98 @@ func TestTimeline_MultilineContentShowsFirstLineByDefault(t *testing.T) {
 	if len(lines) != 1 {
 		t.Fatalf("lines = %d, want 1 (one line per item): %q", len(lines), out)
 	}
-	if strings.Contains(out, "and also shrimp") || strings.Contains(out, "for dinner") {
-		t.Errorf("default output should show only the first line: %q", out)
+	want := "buy cabbage and also shrimp for dinner (`eeee5555`)"
+	if !strings.Contains(out, want) {
+		t.Errorf("default output should collapse newlines to spaces and show the full (short) content: got %q, want to contain %q", out, want)
 	}
-	if !strings.Contains(out, "buy cabbage (`eeee5555`)") {
-		t.Errorf("default output should contain the first line and hash: %q", out)
+	if strings.Contains(out, ellipsis) {
+		t.Errorf("short content should not be truncated with an ellipsis: %q", out)
 	}
 }
 
-func TestTimeline_FullTextShowsAllLines(t *testing.T) {
-	item := model.Item{Hash: "eeee5555", Content: "buy cabbage\nand also shrimp\nfor dinner", CreatedAt: "2026-07-05T08:43:05.073Z"}
+func TestTimeline_LongContentTruncatedWithEllipsisByDefault(t *testing.T) {
+	// Collapsed content over 50 runes: shown as the first 50 runes plus
+	// an ellipsis. Requirements 1.1, 1.2.
+	longContent := strings.Repeat("a", 60)
+	item := model.Item{Hash: "ffff6666", Content: longContent, CreatedAt: "2026-07-05T08:43:05.073Z"}
+
+	var buf strings.Builder
+	Timeline(&buf, []model.Item{item}, false)
+	out := strings.TrimRight(buf.String(), "\n")
+
+	wantContent := strings.Repeat("a", 50) + ellipsis
+	want := "- " + formatTime(item.CreatedAt) + " " + wantContent + " (`ffff6666`)"
+	if out != want {
+		t.Errorf("Timeline long content = %q, want %q", out, want)
+	}
+}
+
+func TestTimeline_FullTextCollapsesNewlinesButShowsAllContent(t *testing.T) {
+	// --full-text: newlines are collapsed to spaces (so the item is
+	// still exactly one line), but the full content is shown with no
+	// truncation and no ellipsis, even past 50 characters. Requirements
+	// 2.1, 2.2, 2.3.
+	item := model.Item{Hash: "eeee5555", Content: "buy cabbage\nand also shrimp\nfor dinner, which is a long enough sentence to pass fifty characters", CreatedAt: "2026-07-05T08:43:05.073Z"}
 
 	var buf strings.Builder
 	Timeline(&buf, []model.Item{item}, true)
 	out := buf.String()
 
-	for _, want := range []string{"buy cabbage", "and also shrimp", "for dinner", "(`eeee5555`)"} {
+	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("lines = %d, want 1 (one line per item): %q", len(lines), out)
+	}
+	for _, want := range []string{"buy cabbage", "and also shrimp", "for dinner, which is a long enough sentence to pass fifty characters", "(`eeee5555`)"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("full-text output should contain %q:\n%s", want, out)
 		}
 	}
+	if strings.Contains(strings.TrimRight(out, "\n"), "\n") {
+		t.Errorf("full-text output should have newlines collapsed to spaces within the single line: %q", out)
+	}
+	if strings.Contains(out, ellipsis) {
+		t.Errorf("full-text output should never be truncated with an ellipsis: %q", out)
+	}
 }
 
-func TestFirstLine(t *testing.T) {
+func TestSummarizeContent(t *testing.T) {
 	cases := []struct {
-		content string
-		want    string
+		name     string
+		content  string
+		fullText bool
+		want     string
 	}{
-		{"single line", "single line"},
-		{"first\nsecond", "first"},
-		{"first\nsecond\nthird", "first"},
-		{"", ""},
+		{"single line short, default", "single line", false, "single line"},
+		{"newline within limit, default: collapsed and untruncated", "first\nsecond", false, "first second"},
+		{"consecutive newlines collapse to a single space", "paragraph A\n\nparagraph B", false, "paragraph A paragraph B"},
+		{"exactly 50 runes after collapse: no ellipsis", strings.Repeat("a", 50), false, strings.Repeat("a", 50)},
+		{"51 runes after collapse: truncated with ellipsis", strings.Repeat("a", 51), false, strings.Repeat("a", 50) + ellipsis},
+		{"full-text: newlines collapsed, no truncation past 50", strings.Repeat("a", 30) + "\n\n" + strings.Repeat("b", 30), true, strings.Repeat("a", 30) + " " + strings.Repeat("b", 30)},
+		{"full-text: consecutive newlines collapse to a single space", "paragraph A\n\nparagraph B", true, "paragraph A paragraph B"},
+		{"empty content", "", false, ""},
 	}
 	for _, c := range cases {
-		if got := firstLine(c.content); got != c.want {
-			t.Errorf("firstLine(%q) = %q, want %q", c.content, got, c.want)
+		if got := summarizeContent(c.content, c.fullText); got != c.want {
+			t.Errorf("%s: summarizeContent(%q, %v) = %q, want %q", c.name, c.content, c.fullText, got, c.want)
+		}
+	}
+}
+
+func TestTruncate(t *testing.T) {
+	cases := []struct {
+		name     string
+		s        string
+		maxRunes int
+		want     string
+	}{
+		{"under limit: unchanged", "short", 50, "short"},
+		{"exactly at limit: unchanged, no ellipsis", strings.Repeat("a", 50), 50, strings.Repeat("a", 50)},
+		{"over limit: cut and ellipsis appended", strings.Repeat("a", 60), 50, strings.Repeat("a", 50) + ellipsis},
+		{"multi-byte runes (Japanese) truncated without corrupting characters", strings.Repeat("日", 60), 50, strings.Repeat("日", 50) + ellipsis},
+	}
+	for _, c := range cases {
+		if got := truncate(c.s, c.maxRunes); got != c.want {
+			t.Errorf("%s: truncate(%q, %d) = %q, want %q", c.name, c.s, c.maxRunes, got, c.want)
 		}
 	}
 }

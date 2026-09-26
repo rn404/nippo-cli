@@ -12,6 +12,13 @@ import (
 
 const bullet = "-"
 
+// maxContentRunes is the fixed character limit (rune-based) applied to
+// an item's content in default (non "--full-text") display.
+const maxContentRunes = 50
+
+// ellipsis is appended to truncated content in default display.
+const ellipsis = "…"
+
 // Header prints a section title surrounded by blank space.
 func Header(w io.Writer, title string) {
 	fmt.Fprintf(w, "\n    %s\n\n", title)
@@ -21,9 +28,12 @@ func Header(w io.Writer, title string) {
 // the order given: a GFM checklist prefix (or a plain bullet for
 // memos), the creation time, the content, and the hash/tags for
 // reference. The hash is always wrapped as "(`hash`)" so it can be
-// extracted from any line with the same pattern. When fullText is
-// false, multi-line content is shown as its first line only, so one
-// line always maps to one item; when true, content is shown in full.
+// extracted from any line with the same pattern. Content is always
+// summarized to a single line via summarizeContent: newlines are
+// collapsed to spaces, and when fullText is false the result is
+// further truncated to maxContentRunes characters with a trailing
+// ellipsis; when true, the newline-collapsed content is shown in
+// full. Either way, one line always maps to one item.
 func Timeline(w io.Writer, items []model.Item, fullText bool) {
 	if len(items) == 0 {
 		fmt.Fprintln(w, "There is no body...")
@@ -31,10 +41,7 @@ func Timeline(w io.Writer, items []model.Item, fullText bool) {
 	}
 
 	for _, item := range items {
-		content := item.Content
-		if !fullText {
-			content = firstLine(content)
-		}
+		content := summarizeContent(item.Content, fullText)
 		fmt.Fprintf(w, "%s %s %s (`%s`)%s\n", checklistPrefix(item.Status()), formatTime(item.CreatedAt), content, item.Hash, formatTags(item.Tags))
 	}
 }
@@ -57,11 +64,47 @@ func checklistPrefix(status model.Status) string {
 	}
 }
 
-// firstLine returns content's first line, or content itself if it
-// has no newline.
-func firstLine(content string) string {
-	line, _, _ := strings.Cut(content, "\n")
-	return line
+// summarizeContent derives the single-line string to display for an
+// item's (possibly multi-line) content: each run of one or more
+// consecutive newlines is always collapsed into a single space; when
+// fullText is false, the result is truncated to maxContentRunes runes
+// with a trailing ellipsis if it exceeds that length.
+func summarizeContent(content string, fullText bool) string {
+	collapsed := collapseNewlines(content)
+	if fullText {
+		return collapsed
+	}
+	return truncate(collapsed, maxContentRunes)
+}
+
+// collapseNewlines replaces each run of one or more consecutive
+// newline characters in s with a single half-width space.
+func collapseNewlines(s string) string {
+	var b strings.Builder
+	inRun := false
+	for _, r := range s {
+		if r == '\n' {
+			if !inRun {
+				b.WriteByte(' ')
+				inRun = true
+			}
+			continue
+		}
+		inRun = false
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
+// truncate cuts s to at most maxRunes runes, appending an ellipsis if
+// truncation occurred. Rune-based (not byte-based) so multi-byte
+// characters (e.g. Japanese content) are not corrupted mid-character.
+func truncate(s string, maxRunes int) string {
+	runes := []rune(s)
+	if len(runes) <= maxRunes {
+		return s
+	}
+	return string(runes[:maxRunes]) + ellipsis
 }
 
 // Carried prints the automatic-carry notice, ahead of whatever output
