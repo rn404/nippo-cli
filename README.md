@@ -10,9 +10,6 @@
 - cli ツール作りたい
 - 独り言メモツールしたい(日報補助ツール)
 
-構想は gist に
-https://gist.github.com/rn404/decf010fc48d7d8688116af0f4427b44
-
 ## Install
 
 [Releases](https://github.com/rn404/nippo-cli/releases/latest) からビルド済み
