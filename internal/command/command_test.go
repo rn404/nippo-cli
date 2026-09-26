@@ -886,11 +886,13 @@ func TestListStatAndAll_UnaffectedByNewFlags(t *testing.T) {
 }
 
 // TestListToday_FullTextFlagShowsMultilineContent proves requirements
-// 4.1 and 4.2 end-to-end: in the daily (non-stat) view, a multi-line
-// item's content is summarized to its first line by default, and
-// shown in full (all lines) when FullText is set — while the other
-// item remains single-line either way, proving the flag only changes
-// how multi-line content renders, not single-line content.
+// 1.1, 1.3, 2.1, and 2.2 end-to-end: in the daily (non-stat) view, a
+// multi-line item's content whose newline-collapsed form fits within
+// the 50-rune limit has its newlines collapsed to single spaces and
+// is shown in full (no truncation, no ellipsis) both by default and
+// with FullText set — since collapsing, not line-splitting, is what
+// default display now does — while the other item remains single-line
+// either way, proving the flag does not change single-line content.
 func TestListToday_FullTextFlagShowsMultilineContent(t *testing.T) {
 	dir := t.TempDir()
 	open := false
@@ -904,11 +906,11 @@ func TestListToday_FullTextFlagShowsMultilineContent(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := summarized.String()
-	if !strings.Contains(got, "first line") {
-		t.Errorf("default output should contain the first line: %q", got)
+	if !strings.Contains(got, "first line second line third line") {
+		t.Errorf("default output should collapse newlines into spaces and show the full (untruncated) content, since it fits within 50 runes: %q", got)
 	}
-	if strings.Contains(got, "second line") || strings.Contains(got, "third line") {
-		t.Errorf("default (FullText=false) output should not contain later lines:\n%s", got)
+	if strings.Contains(got, "…") {
+		t.Errorf("default output should not have an ellipsis when the collapsed content is within the 50-rune limit: %q", got)
 	}
 	if !strings.Contains(got, "single line memo") {
 		t.Errorf("default output should still contain the single-line memo: %q", got)
@@ -919,10 +921,48 @@ func TestListToday_FullTextFlagShowsMultilineContent(t *testing.T) {
 		t.Fatal(err)
 	}
 	got = full.String()
-	for _, want := range []string{"first line", "second line", "third line", "single line memo"} {
-		if !strings.Contains(got, want) {
-			t.Errorf("FullText=true output should contain %q:\n%s", want, got)
+	if !strings.Contains(got, "first line second line third line") {
+		t.Errorf("FullText=true output should also collapse newlines into spaces: %q", got)
+	}
+	if !strings.Contains(got, "single line memo") {
+		t.Errorf("FullText=true output should still contain the single-line memo: %q", got)
+	}
+}
+
+// TestListToday_FullTextGrepMatchesFullItemLineEvenWhenKeywordIsOnALaterLine
+// is the E2E proof of this spec's whole motivation: piping
+// `sava list --full-text` into `grep 'word'` must hit the complete
+// item line, hash included, even when the keyword only appears on a
+// later line of a multi-line memo — because newlines are collapsed to
+// spaces rather than left intact, no line-oriented match can land on
+// a hash-less fragment. Requirements: 1.1, 1.3, 2.1, 2.2, 2.3.
+func TestListToday_FullTextGrepMatchesFullItemLineEvenWhenKeywordIsOnALaterLine(t *testing.T) {
+	dir := t.TempDir()
+	writeDay(t, dir, "", []model.Item{
+		{Hash: "memoaaaa", Content: "shopping list\nbuy cabbage\nand shrimp", CreatedAt: "2026-01-01T01:00:00.000Z", UpdatedAt: "2026-01-01T01:00:00.000Z"},
+		{Hash: "memobbbb", Content: "unrelated memo", CreatedAt: "2026-01-01T02:00:00.000Z", UpdatedAt: "2026-01-01T02:00:00.000Z"},
+	})
+
+	var out strings.Builder
+	if err := List(&out, strings.NewReader(""), dir, ListOptions{FullText: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	const keyword = "cabbage"
+	var matches []string
+	for _, line := range strings.Split(out.String(), "\n") {
+		if strings.Contains(line, keyword) {
+			matches = append(matches, line)
 		}
+	}
+	if len(matches) != 1 {
+		t.Fatalf("grep-equivalent match count for %q = %d, want exactly 1 (one item, one line); matches: %q\nfull output:\n%s", keyword, len(matches), matches, out.String())
+	}
+	if !strings.Contains(matches[0], "(`memoaaaa`)") {
+		t.Errorf("the matched line should be the full item line including its hash, got: %q", matches[0])
+	}
+	if !strings.Contains(matches[0], "shopping list") || !strings.Contains(matches[0], "and shrimp") {
+		t.Errorf("the matched line should be the item's whole content (all lines collapsed onto it), got: %q", matches[0])
 	}
 }
 
