@@ -384,31 +384,36 @@ func TestListOldFullFlagIsRejected(t *testing.T) {
 
 // TestFullTextFlag proves "--full-text" is registered on the list
 // command and bridged to command.ListOptions.FullText: a multi-line
-// memo shows only its first line by default, and its full content
-// (all lines) once --full-text is given.
+// memo whose newline-collapsed content exceeds the 50-rune default
+// truncation limit is truncated by default, and shown in full (all
+// lines, with newlines collapsed to single spaces rather than
+// preserved) once --full-text is given. The second line's content
+// starts well past the 50-rune mark, so it is used to prove the
+// truncation boundary.
 func TestFullTextFlag(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	mustExecute(t, "add", "first line\nsecond line")
+	mustExecute(t, "add", "first line with a lot of filler text before the break\nsecond line")
 
 	out := mustExecute(t, "list")
 	if !strings.Contains(out, "first line") {
 		t.Errorf("list output should contain the first line:\n%s", out)
 	}
 	if strings.Contains(out, "second line") {
-		t.Errorf("list without --full-text should not show the second line:\n%s", out)
+		t.Errorf("list without --full-text should not show the second line, since it falls beyond the 50-rune truncation limit:\n%s", out)
 	}
 
 	out = mustExecute(t, "list", "--full-text")
-	if !strings.Contains(out, "first line\nsecond line") {
-		t.Errorf("list --full-text should show the full multi-line content:\n%s", out)
+	if !strings.Contains(out, "first line with a lot of filler text before the break second line") {
+		t.Errorf("list --full-text should show the full content with newlines collapsed to a single space, untruncated:\n%s", out)
 	}
 }
 
 // TestFullListAndFullTextFlagsAreIndependent proves "--full-list" and
 // "--full-text" apply their effects independently when combined: a
-// closed task appears (from --full-list) and a multi-line item's full
-// content is shown (from --full-text), neither suppressing the other.
+// closed task appears (from --full-list) and a multi-line item's
+// content is shown in full, with its newline collapsed to a single
+// space (from --full-text), neither suppressing the other.
 func TestFullListAndFullTextFlagsAreIndependent(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
@@ -425,8 +430,8 @@ func TestFullListAndFullTextFlagsAreIndependent(t *testing.T) {
 	if !strings.Contains(out, "buy cabbage") {
 		t.Errorf("--full-list --full-text should include the closed task (--full-list effect):\n%s", out)
 	}
-	if !strings.Contains(out, "buy cabbage\nand shrimp") {
-		t.Errorf("--full-list --full-text should show the full multi-line content (--full-text effect):\n%s", out)
+	if !strings.Contains(out, "buy cabbage and shrimp") {
+		t.Errorf("--full-list --full-text should show the full content with its newline collapsed to a single space (--full-text effect):\n%s", out)
 	}
 }
 

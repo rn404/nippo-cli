@@ -59,7 +59,7 @@
 - `internal/view/view.go` — 非公開ヘルパー`firstLine`を`summarizeContent`（改行置換＋`fullText`に応じた切り詰め）と`truncate`（rune単位の切り詰め＋省略記号付与）に置き換える。`Timeline`のcontent算出行を`content = summarizeContent(item.Content, fullText)`に変更する。
 - `internal/view/view_test.go` — `TestFirstLine`を新ヘルパーの単体テストに置き換え、`TestTimeline_MultilineContentShowsFirstLineByDefault`を新しい要約仕様（改行除去＋50文字閾値）を検証する内容に更新する。50文字境界・省略記号・`--full-text`側の改行除去を検証するテストケースを追加する（詳細は Testing Strategy 参照）。
 - `internal/command/command_test.go` — `TestListToday_FullTextFlagShowsMultilineContent`内、「50文字以内の複数行content」に対する非full-text期待値を更新する（改行除去により、従来は非表示だった2行目以降の内容が同一行内にスペース区切りで表示されるようになるため）。
-- `cmd/sava/root_test.go` — `TestFullTextFlag`と`TestFullListAndFullTextFlagsAreIndependent`が検証している`"first line\nsecond line"` / `"buy cabbage\nand shrimp"`という改行を含む期待値を、改行がスペースに置換された期待値（`"first line second line"` / `"buy cabbage and shrimp"`）に更新する。
+- `cmd/sava/root_test.go` — `TestFullTextFlag`と`TestFullListAndFullTextFlagsAreIndependent`が検証している、改行を含む期待値（改行がそのまま残ることを前提にしたもの）を、改行がスペースに置換された期待値に更新する。`TestFullTextFlag`のfixture content（旧`"first line\nsecond line"`）は、改行圧縮後の文字数が50文字（rune単位）を超えるように変更する必要がある点に注意する（圧縮後50文字以内だとデフォルト表示でも切り詰められず全文表示されてしまい、デフォルト表示と`--full-text`表示を区別するテストとして機能しなくなるため）。
 
 ### No Changes Required
 - `internal/command/command.go`（`ListOptions`, `listOneDay`, `List`）— `view.Timeline(w, items, opts.FullText)`の呼び出しシグネチャは変更なし
@@ -164,4 +164,4 @@ func truncate(s string, maxRunes int) string
 ### Existing Tests Requiring Updates (regression, not new coverage)
 - `internal/view/view_test.go`: `TestFirstLine`（削除・置き換え）、`TestTimeline_MultilineContentShowsFirstLineByDefault`（期待値更新）
 - `internal/command/command_test.go`: `TestListToday_FullTextFlagShowsMultilineContent`（50文字以内の複数行contentに対する非full-text期待値更新）
-- `cmd/sava/root_test.go`: `TestFullTextFlag`, `TestFullListAndFullTextFlagsAreIndependent`（改行を含む期待値をスペース区切りに更新）
+- `cmd/sava/root_test.go`: `TestFullTextFlag`, `TestFullListAndFullTextFlagsAreIndependent`（改行を含む期待値をスペース区切りに更新。`TestFullTextFlag`は前述の通りfixture contentも50文字超になるよう調整が必要）
