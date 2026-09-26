@@ -939,3 +939,120 @@ func TestRunEditor_CommandNotFoundAfterSplit(t *testing.T) {
 		t.Error("runEditor with a nonexistent command (post-split) should return an error")
 	}
 }
+
+// recordingFakeEditorScript returns a shell script (for use with
+// writeFakeEditor) that, when invoked with a multi-token $EDITOR
+// value's extra arguments plus the temp file path appended last by
+// runEditor, records every argument it received (one per line) to
+// recorderPath, then writes content into its OWN LAST positional
+// argument -- not "$1" -- since with dummy args in front, the real
+// temp file path lands at the end, not in the first position. The
+// `eval "target=\${$#}"` idiom resolves to the last positional
+// parameter regardless of how many dummy args precede it.
+//
+// Writing content into that resolved path (rather than just
+// recording it) is itself part of the proof: the CLI only picks up
+// the new content if that path is the actual temp file runEditor was
+// given, so a successful add/edit confirms the recorded last line was
+// the real temp file path passed as the final argument.
+func recordingFakeEditorScript(recorderPath, content string) string {
+	return "#!/bin/sh\n" +
+		"printf '%s\\n' \"$@\" > \"" + recorderPath + "\"\n" +
+		"eval \"target=\\${$#}\"\n" +
+		"printf '%s' \"" + content + "\" > \"$target\"\n"
+}
+
+// TestAddEditorMode_MultiTokenEditor proves the end-to-end path from
+// "sava add" through editor.Resolve to runEditor correctly handles a
+// multi-token $EDITOR value (command + dummy argument): the fake
+// script launches with the dummy argument intact, and the temp file
+// path is passed as the last argument (Requirements 1.1, 1.2, 3.1).
+func TestAddEditorMode_MultiTokenEditor(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	dir := t.TempDir()
+	recorder := filepath.Join(dir, "recorded-args")
+	script := writeFakeEditor(t, dir, "fake-editor.sh",
+		recordingFakeEditorScript(recorder, "added via multi-token editor"))
+	t.Setenv("EDITOR", script+" --flag extra")
+
+	out := mustExecute(t, "add")
+	if !strings.Contains(out, "Added!!") || !strings.Contains(out, "added via multi-token editor") {
+		t.Errorf("add output = %q", out)
+	}
+
+	got, err := os.ReadFile(recorder)
+	if err != nil {
+		t.Fatalf("reading recorded args: %v", err)
+	}
+	lines := strings.Split(strings.TrimRight(string(got), "\n"), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("recorded args = %q, want exactly 3 lines (2 dummy args + temp path)", got)
+	}
+	if lines[0] != "--flag" || lines[1] != "extra" {
+		t.Errorf("recorded leading args = %q, %q, want %q, %q", lines[0], lines[1], "--flag", "extra")
+	}
+	tempPath := lines[2]
+	if !filepath.IsAbs(tempPath) {
+		t.Errorf("recorded last arg (temp file path) = %q, want an absolute path", tempPath)
+	}
+
+	list := mustExecute(t, "list")
+	if !strings.Contains(list, "added via multi-token editor") {
+		t.Errorf("list after multi-token editor-mode add should show the new content:\n%s", list)
+	}
+}
+
+// TestEditEditorMode_MultiTokenEditor proves the end-to-end path from
+// "sava edit <hash>" through editor.Resolve to runEditor also
+// correctly handles a multi-token $EDITOR value, exercising the same
+// shared runEditor via a second command (edit) so that add and edit
+// both confirm consistent split behavior across command entry points
+// (Requirements 1.1, 1.2, 3.1). todo's editor-mode path is unchanged
+// from add/edit's -- both inject the same runEditor via
+// editor.Resolve -- and remains covered by the pre-existing
+// single-token todo editor-mode tests below.
+func TestEditEditorMode_MultiTokenEditor(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	added := mustExecute(t, "add", "original content")
+	hash := addedHash(added)
+	if hash == "" {
+		t.Fatalf("could not extract hash from add output:\n%s", added)
+	}
+
+	dir := t.TempDir()
+	recorder := filepath.Join(dir, "recorded-args")
+	script := writeFakeEditor(t, dir, "fake-editor.sh",
+		recordingFakeEditorScript(recorder, "edited via multi-token editor"))
+	t.Setenv("EDITOR", script+" --flag extra")
+
+	out := mustExecute(t, "edit", hash)
+	if !strings.Contains(out, "Edited!!") || !strings.Contains(out, "edited via multi-token editor") {
+		t.Errorf("edit output = %q", out)
+	}
+
+	got, err := os.ReadFile(recorder)
+	if err != nil {
+		t.Fatalf("reading recorded args: %v", err)
+	}
+	lines := strings.Split(strings.TrimRight(string(got), "\n"), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("recorded args = %q, want exactly 3 lines (2 dummy args + temp path)", got)
+	}
+	if lines[0] != "--flag" || lines[1] != "extra" {
+		t.Errorf("recorded leading args = %q, %q, want %q, %q", lines[0], lines[1], "--flag", "extra")
+	}
+	tempPath := lines[2]
+	if !filepath.IsAbs(tempPath) {
+		t.Errorf("recorded last arg (temp file path) = %q, want an absolute path", tempPath)
+	}
+
+	list := mustExecute(t, "list")
+	if !strings.Contains(list, "edited via multi-token editor") {
+		t.Errorf("list after multi-token editor-mode edit should show the new content:\n%s", list)
+	}
+	if strings.Contains(list, "original content") {
+		t.Errorf("list after multi-token editor-mode edit should not show the old content:\n%s", list)
+	}
+}
